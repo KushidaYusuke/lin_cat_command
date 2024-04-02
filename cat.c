@@ -2,6 +2,8 @@
 #include<stdlib.h>
 #include<string.h>
 #include<ctype.h>
+
+#define max_length 2000 //1行の長さは最長で2000文字であるとする 
 int main(int argc, char **argv) {
   if (argc < 2) {
     fprintf(stderr, "引数の数が異常です\n");
@@ -22,8 +24,8 @@ int main(int argc, char **argv) {
         fprintf(stderr, "ファイルを開くことができませんでした\n");
 	exit(1);
       }
-      char buf[200];
-      while(fgets(buf, 200, file) != NULL) {
+      char buf[max_length];
+      while(fgets(buf, max_length, file) != NULL) {
         printf("%d", counter);
 	counter += 1;
         printf("%s", buf);
@@ -45,8 +47,8 @@ int main(int argc, char **argv) {
         fprintf(stderr, "ファイルを開くことができませんでした\n");
 	exit(1);
       }
-      char buf[200];
-      while(fgets(buf, 200, file) != NULL) {
+      char buf[max_length];
+      while(fgets(buf, max_length, file) != NULL) {
 	if(buf[0] != '\n') {
 	//if(strlen(buf) != 0) {
 	//if(isspace(buf[0]) == 0) {
@@ -68,8 +70,8 @@ int main(int argc, char **argv) {
         exit(1);
       }
       //テキストファイルの内容を一行ずつbufに読み込んで標準出力する
-      char buf[200];
-      while(fgets(buf, 200, file) != NULL) {
+      char buf[max_length];
+      while(fgets(buf, max_length, file) != NULL) {
         printf("%s", buf);
       }
       fclose(file);
