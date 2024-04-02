@@ -2,8 +2,9 @@
 #include<stdlib.h>
 #include<string.h>
 #include<ctype.h>
-
+#include<stdbool.h>
 #define max_length 2000 //1行の長さは最長で2000文字であるとする 
+
 int main(int argc, char **argv) {
   if (argc < 2) {
     fprintf(stderr, "引数の数が異常です\n");
@@ -80,7 +81,39 @@ int main(int argc, char **argv) {
       fclose(file);
     }
   }
+  
+  else if(strcmp(argv[1], "-s") == 0) { 
+    if(argc < 3) {
+      fprintf(stderr, "引数の数が異常です\n");
+      exit(1);  
+    }
+      
+    //前の行が空白行であるか否かを管理する
+    bool is_before_blank = false;
     
+    for(int i = 2; i < argc; i++) {
+      FILE *file;
+      file = fopen(argv[i], "r");
+      if(file == NULL) {
+        fprintf(stderr, "ファイルを開くことができませんでした\n");
+	exit(1);
+      }
+      char buf[max_length];
+      while(fgets(buf, max_length, file) != NULL) {
+	if(buf[0] == '\n') {
+	  is_before_blank = true;
+	  continue;
+	}
+	else if(is_before_blank==true) {
+          printf("\n");
+	  is_before_blank=false;
+	}
+        printf("%s", buf);	
+      }
+      fclose(file);
+    }
+  }
+
   else {
     for(int i = 1; i < argc; i++) {
       FILE *file;
