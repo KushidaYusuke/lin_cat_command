@@ -31,7 +31,9 @@ int main(int argc, char **argv) {
       }
       char buf[max_length];
       while(fgets(buf, max_length, file) != NULL) {
-        printf("%d", counter);
+        printf("\t");
+	printf("%d", counter);
+	printf(" ");
 	counter += 1;
         printf("%s", buf);
       }
@@ -77,8 +79,10 @@ int main(int argc, char **argv) {
 	if(buf[0] != '\n') {
 	//if(strlen(buf) != 0) {
 	//if(isspace(buf[0]) == 0) {
+          printf("\t");
           printf("%d", counter_b);
 	  counter_b += 1;
+	  printf(" ");
 	}
         printf("%s", buf);	
       }
