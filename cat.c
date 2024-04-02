@@ -34,6 +34,26 @@ int main(int argc, char **argv) {
     }
   }
   
+  else if(strcmp(argv[1], "-E") == 0) { 
+    for(int i = 2; i < argc; i++) {
+      FILE *file;
+      file = fopen(argv[i], "r");
+      if(file == NULL) {
+        fprintf(stderr, "ファイルを開くことができませんでした\n");
+        exit(1);
+      }
+      //テキストファイルの内容を一行ずつbufに読み込んで標準出力する
+      char buf[max_length];
+      while(fgets(buf, max_length, file) != NULL) {
+        buf[strlen(buf)-1] = '$';
+	buf[strlen(buf)] = '\0';
+	//buf[strlen(buf)+1] = '\0';
+        printf("%s", buf);
+	printf("\n");
+      }
+      fclose(file);
+    }
+  }
   else if(strcmp(argv[1], "-b") == 0) {
     if(argc < 3) {
       fprintf(stderr, "引数の数が異常です\n");
