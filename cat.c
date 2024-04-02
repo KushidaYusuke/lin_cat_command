@@ -6,8 +6,13 @@
 #define max_length 2000 //1行の長さは最長で2000文字であるとする 
 
 int main(int argc, char **argv) {
-  if (argc < 2) {
-    fprintf(stderr, "引数の数が異常です\n");
+  if (argc == 1) {
+    while(1) {
+      char *read_input;
+      scanf("%s", read_input);
+      printf("%s", read_input);
+      printf("\n");
+    }
     exit(1);
   }
 
