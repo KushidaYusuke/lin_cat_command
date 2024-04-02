@@ -19,8 +19,7 @@ int main(int argc, char **argv) {
   if(strcmp(argv[1], "-n") == 0) {
     if(argc < 3) {
       fprintf(stderr, "引数の数が異常です\n");
-    }  
-  
+    }   
     //現在の行数をカウントする
     int counter = 1;
     for(int i = 2; i < argc; i++) {
@@ -114,6 +113,34 @@ int main(int argc, char **argv) {
 	  is_before_blank=false;
 	}
         printf("%s", buf);	
+      }
+      fclose(file);
+    }
+  }
+  //タブ文字を置換
+  else if(strcmp(argv[1], "-T") == 0) { 
+    if(argc < 3) {
+      fprintf(stderr, "引数の数が異常です\n");
+      exit(1);  
+    }
+    for(int i = 2; i < argc; i++) {
+      FILE *file;
+      file = fopen(argv[i], "r");
+      if(file == NULL) {
+        fprintf(stderr, "ファイルを開くことができませんでした\n");
+        exit(1);
+      }
+      //テキストファイルの内容を一行ずつbufに読み込んで標準出力する
+      char buf[max_length];
+      while(fgets(buf, max_length, file) != NULL) {
+        for(int i = 0; i < (int)strlen(buf); i++) {
+	  if(buf[i] == '\t') {
+	    printf("^I");
+	  }
+	  else {
+	    printf("%c", buf[i]);
+	  }
+	}
       }
       fclose(file);
     }
