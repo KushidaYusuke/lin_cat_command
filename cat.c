@@ -115,11 +115,7 @@ int main(int argc, char **argv) {
     if(argc < 3) {
       fprintf(stderr, "引数の数が異常です\n");
       exit(1);  
-    }
-      
-    //前の行が空白行であるか否かを管理する
-    bool is_before_blank = false;
-    
+    }  
     for(int i = 2; i < argc; i++) {
       FILE *file;
       file = fopen(argv[i], "r");
@@ -127,22 +123,33 @@ int main(int argc, char **argv) {
         fprintf(stderr, "ファイルを開くことができませんでした\n");
 	exit(1);
       }
-      char buf[max_length];
-      while(fgets(buf, max_length, file) != NULL) {
-	if(buf[0] == '\n') {
-	  is_before_blank = true;
+      int c;
+      bool is_first_row_char = true; //行頭であるかを管理
+      bool is_first_blank = true; //連続した空白行のうち、初めの空白行であるか
+      while((c = fgetc(file)) != EOF) {
+        //空白行の場合の処理
+	if(is_first_row_char && (c == '\n')) {
+	  if(is_first_blank == true) {
+	    putchar('\n');
+	    is_first_blank = false;
+	  }
 	  continue;
 	}
-	else if(is_before_blank==true) {
-          printf("\n");
-	  is_before_blank=false;
+	//空白行でない場合の処理
+        else {
+	  putchar(c);
+	  is_first_row_char = false;
+	  is_first_blank = true;
+	  if(c == '\n') {
+	    is_first_row_char = true;
+	  }
 	}
-        printf("%s", buf);	
       }
       fclose(file);
     }
   }
-  //タブ文字を置換
+
+  //-Tオプション(タブ文字を置換)
   else if(strcmp(argv[1], "-T") == 0) { 
     if(argc < 3) {
       fprintf(stderr, "引数の数が異常です\n");
