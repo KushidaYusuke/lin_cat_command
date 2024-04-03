@@ -163,17 +163,15 @@ int main(int argc, char **argv) {
         exit(1);
       }
       //テキストファイルの内容を一行ずつbufに読み込んで標準出力する
-      char buf[max_length];
-      while(fgets(buf, max_length, file) != NULL) {
-        for(int i = 0; i < (int)strlen(buf); i++) {
-	  if(buf[i] == '\t') {
+      int c;
+      while((c = fgetc(file)) != EOF) {
+        if(c == '\t') {
 	    printf("^I");
 	  }
 	  else {
-	    printf("%c", buf[i]);
+	    putchar(c);
 	  }
 	}
-      }
       fclose(file);
     }
   }
