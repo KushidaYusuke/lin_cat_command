@@ -79,7 +79,7 @@ int main(int argc, char **argv) {
       fprintf(stderr, "引数の数が異常です\n");
       exit(1);  
     }
-    int counter_b = 1;
+    int counter_b = 0;
     for(int i = 2; i < argc; i++) {
       FILE *file;
       file = fopen(argv[i], "r");
@@ -87,17 +87,24 @@ int main(int argc, char **argv) {
         fprintf(stderr, "ファイルを開くことができませんでした\n");
 	exit(1);
       }
-      char buf[max_length];
-      while(fgets(buf, max_length, file) != NULL) {
-	if(buf[0] != '\n') {
-	//if(strlen(buf) != 0) {
-	//if(isspace(buf[0]) == 0) {
-          printf("\t");
-          printf("%d", counter_b);
-	  counter_b += 1;
-	  printf(" ");
+      int c;
+      bool is_first_row_char = true;
+      while((c = fgetc(file)) != EOF) {
+        if(is_first_row_char && (c == '\n')) {
+	  putchar('\n');
+	  continue;
 	}
-        printf("%s", buf);	
+	else if(is_first_row_char) {
+          counter_b += 1;
+	  printf("\t");
+	  printf("%d", counter_b);
+	  printf(" ");
+	  is_first_row_char = false;
+        }
+        putchar(c);
+	if(c == '\n') {
+	  is_first_row_char = true;
+	}
       }
       fclose(file);
     }
