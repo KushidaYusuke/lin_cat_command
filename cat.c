@@ -3,7 +3,6 @@
 #include<string.h>
 #include<ctype.h>
 #include<stdbool.h>
-#define max_length 2000 //1行の長さは最長で2000文字であるとする 
 
 int main(int argc, char **argv) {
   //ファイル名が指定されていない場合
@@ -31,9 +30,8 @@ int main(int argc, char **argv) {
         fprintf(stderr, "ファイルを開くことができませんでした\n");
 	exit(1);
       }
-      char buf[max_length];
-      int c;
-      
+
+      int c; 
       bool is_first_row_char = true; //行頭の文字であるかを管理する
       while((c = fgetc(file)) != EOF) {
         if(is_first_row_char) {
