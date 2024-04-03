@@ -61,15 +61,15 @@ int main(int argc, char **argv) {
         fprintf(stderr, "ファイルを開くことができませんでした\n");
         exit(1);
       }
-      //テキストファイルの内容を一行ずつbufに読み込んで標準出力する
-      char buf[max_length];
-      while(fgets(buf, max_length, file) != NULL) {
-        buf[strlen(buf)-1] = '$';
-	buf[strlen(buf)] = '\0';
-	//buf[strlen(buf)+1] = '\0';
-        printf("%s", buf);
-	printf("\n");
+      int c;
+      while((c = fgetc(file)) != EOF) {
+        if(c == '\n') {
+	  putchar('$');
+	}
+	putchar(c);
+
       }
+      //テキストファイルの内容を一行ずつbufに読み込んで標準出力する
       fclose(file);
     }
   }
