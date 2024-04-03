@@ -6,22 +6,24 @@
 #define max_length 2000 //1行の長さは最長で2000文字であるとする 
 
 int main(int argc, char **argv) {
+  //ファイル名が指定されていない場合
   if (argc == 1) {
     while(1) {
-      char *read_input;
-      scanf("%s", read_input);
-      printf("%s", read_input);
-      printf("\n");
+      int c;
+      while((c = fgetc(stdin)) != EOF) {
+        putchar(c);
+  }
     }
     exit(1);
   }
-
+  
+  //-nオプションを指定した場合
   if(strcmp(argv[1], "-n") == 0) {
     if(argc < 3) {
       fprintf(stderr, "引数の数が異常です\n");
     }   
     //現在の行数をカウントする
-    int counter = 1;
+    int counter = 0;
     for(int i = 2; i < argc; i++) {
       FILE *file;
       file = fopen(argv[i], "r");
@@ -30,17 +32,27 @@ int main(int argc, char **argv) {
 	exit(1);
       }
       char buf[max_length];
-      while(fgets(buf, max_length, file) != NULL) {
-        printf("\t");
-	printf("%d", counter);
-	printf(" ");
-	counter += 1;
-        printf("%s", buf);
+      int c;
+      
+      bool is_first_row_char = true; //行頭の文字であるかを管理する
+      while((c = fgetc(file)) != EOF) {
+        if(is_first_row_char) {
+          counter += 1;
+	  printf("\t");
+	  printf("%d", counter);
+	  printf(" ");
+	  is_first_row_char = false;
+        }
+        putchar(c);
+	if(c == '\n') {
+	  is_first_row_char = true;
+	}
       }
       fclose(file);
     }
   }
   
+  //-Eオプションを指定した場合
   else if(strcmp(argv[1], "-E") == 0) { 
     for(int i = 2; i < argc; i++) {
       FILE *file;
@@ -61,6 +73,7 @@ int main(int argc, char **argv) {
       fclose(file);
     }
   }
+  //-bオプションを指定した場合
   else if(strcmp(argv[1], "-b") == 0) {
     if(argc < 3) {
       fprintf(stderr, "引数の数が異常です\n");
@@ -89,7 +102,8 @@ int main(int argc, char **argv) {
       fclose(file);
     }
   }
-  
+
+  //-sオプションを指定した場合
   else if(strcmp(argv[1], "-s") == 0) { 
     if(argc < 3) {
       fprintf(stderr, "引数の数が異常です\n");
@@ -150,6 +164,7 @@ int main(int argc, char **argv) {
     }
   }
 
+  //オプションの指定がない場合
   else {
     for(int i = 1; i < argc; i++) {
       FILE *file;
@@ -159,9 +174,9 @@ int main(int argc, char **argv) {
         exit(1);
       }
       //テキストファイルの内容を一行ずつbufに読み込んで標準出力する
-      char buf[max_length];
-      while(fgets(buf, max_length, file) != NULL) {
-        printf("%s", buf);
+      int c;
+      while((c = fgetc(file)) != EOF) {
+        putchar(c);
       }
       fclose(file);
     }
