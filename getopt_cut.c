@@ -32,7 +32,7 @@ char *delim = ",";
 int delim_count = 0;
 
 
-int match_num;
+int match_num = 0;
 
 int lower_bound = 0;
 int upper_bound = INF;
@@ -47,7 +47,6 @@ bool regex_check(char *checkstring) {
     regfree(&regexBuffer);
     match_num = 1;
   }
-
   if(regcomp(&regexBuffer, regex_2, REG_EXTENDED | REG_NEWLINE) != 0) {
     return false;
   }
@@ -55,7 +54,6 @@ bool regex_check(char *checkstring) {
     regfree(&regexBuffer);
     match_num = 2;
   }
- 
   if(regcomp(&regexBuffer, regex_3, REG_EXTENDED | REG_NEWLINE) != 0) {
     return false;
   }
@@ -63,25 +61,23 @@ bool regex_check(char *checkstring) {
     regfree(&regexBuffer);
     match_num = 3;
   }
-
   if(match_num == 1) {
-    sscanf(cparam, "%d-", &lower_bound);
+    sscanf(checkstring, "%d-", &lower_bound);
     lower_bound -= 1; //0-index
     upper_bound = INF;
   }
     // c -7のような場合
   if(match_num == 2) {
-    sscanf(cparam, "-%d", &upper_bound);
+    sscanf(checkstring, "-%d", &upper_bound);
     upper_bound -= 1;
     lower_bound = 0;
   }
     // c 2-7のような場合
   if(match_num == 3) {
-    sscanf(cparam, "%d-%d", &lower_bound, &upper_bound);
+    sscanf(checkstring, "%d-%d", &lower_bound, &upper_bound);
     upper_bound -= 1;
     lower_bound -= 1;
   }
-
   //いずれかの正規表現にマッチした場合
   if(match_num == 1 | match_num == 2 | match_num == 3) {
     return true;
@@ -91,10 +87,10 @@ bool regex_check(char *checkstring) {
   }
 }
 
-int *token_parse(char *cparam) {
+int *token_parse(char *param) {
   //int token_list[INF];
   //printf("これはデバッグです!");
-  char *token = strtok(cparam, delim);
+  char *token = strtok(param, delim);
   while(token != NULL) {
     token_list[delim_count] = atoi(token)-1;
     delim_count += 1;
@@ -160,36 +156,60 @@ void cut_command(FILE *file) {
 
 
   if(fopt) {
-    int cut_field = atoi(fparam);
-    cut_field -= 1;
+    //int cut_field = atoi(fparam);
+    //cut_field -= 1;
     
     char cut_letter;
     if(dopt) {
-      cut_letter = dparam[0]; //-dで指定した区切り文字：
+      cut_letter = dparam[0]; //-dで指定した区切り文字：    
     }
     else {
       cut_letter = '\t';
     }
-    int now_field = 0; //先頭から-dで指定した区切りで何フィールド目にいるか
-    char c;
-    while((c = fgetc(file)) != EOF) {
+    bool is_regex_matched_f = regex_check(fparam);
+    if(is_regex_matched_f) {
+      printf("デバッグ\n");
+      int now_field = 0;
+    
+      int c;      
+      while((c = fgetc(file)) != EOF) {
 	
-    //改行の場合
-      if(c == '\n') {
-        putchar(c);
-	now_field = 0;
-	continue;
-      }
-      if(c == cut_letter) {
-        now_field += 1;
-	continue;
-      }
-        
-      if(cut_field == now_field) {
-        putchar(c);
+        //改行の場合
+        if(c == '\n') {
+          putchar(c);
+	  now_field = 0;
+	  continue;
+        }
+        if(c == cut_letter) {
+          now_field += 1;
+	//  continue;
+        }
+      
+        if((now_field >= lower_bound) && (now_field <= upper_bound)) {
+          putchar(c);
 	}
       }
-    fclose(file);
+    }
+//    int now_field = 0; //先頭から-dで指定した区切りで何フィールド目にいるか
+//    char c;
+//    while((c = fgetc(file)) != EOF) {
+//	
+//    //改行の場合
+//      if(c == '\n') {
+//        putchar(c);
+//	now_field = 0;
+//	continue;
+//      }
+//      if(c == cut_letter) {
+//        now_field += 1;
+//	continue;
+//      }
+//        
+//      if(cut_field == now_field) {
+//        putchar(c);
+//	}
+//      }
+//    fclose(file);
     }
   }
 
