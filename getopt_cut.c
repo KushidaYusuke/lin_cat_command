@@ -31,37 +31,68 @@ int token_list[INF];
 char *delim = ",";
 int delim_count = 0;
 
-int regex_check(char *checkstring) {
+
+int match_num;
+
+int lower_bound = 0;
+int upper_bound = INF;
+
+bool regex_check(char *checkstring) {
   if(regcomp(&regexBuffer, regex_1, REG_EXTENDED | REG_NEWLINE) != 0) {
-    return -1;
+    return false;
     
   }
   size = sizeof(match)/sizeof(regmatch_t);
   if(regexec(&regexBuffer, checkstring, size, match, 0) == 0) {
     regfree(&regexBuffer);
-    return 1;
+    match_num = 1;
   }
 
   if(regcomp(&regexBuffer, regex_2, REG_EXTENDED | REG_NEWLINE) != 0) {
-    return -1;
+    return false;
   }
   if(regexec(&regexBuffer, checkstring, size, match, 0) == 0) {
     regfree(&regexBuffer);
-    return 2;
+    match_num = 2;
   }
  
   if(regcomp(&regexBuffer, regex_3, REG_EXTENDED | REG_NEWLINE) != 0) {
-    return -1;
+    return false;
   }
   if(regexec(&regexBuffer, checkstring, size, match, 0) == 0) {
     regfree(&regexBuffer);
-    return 3;
+    match_num = 3;
   }
-  return 0;
+
+  if(match_num == 1) {
+    sscanf(cparam, "%d-", &lower_bound);
+    lower_bound -= 1; //0-index
+    upper_bound = INF;
+  }
+    // c -7のような場合
+  if(match_num == 2) {
+    sscanf(cparam, "-%d", &upper_bound);
+    upper_bound -= 1;
+    lower_bound = 0;
+  }
+    // c 2-7のような場合
+  if(match_num == 3) {
+    sscanf(cparam, "%d-%d", &lower_bound, &upper_bound);
+    upper_bound -= 1;
+    lower_bound -= 1;
+  }
+
+  //いずれかの正規表現にマッチした場合
+  if(match_num == 1 | match_num == 2 | match_num == 3) {
+    return true;
+  }
+  else {
+    return false;
+  }
 }
 
 int *token_parse(char *cparam) {
-  //int *tolen_list[INF];
+  //int token_list[INF];
   //printf("これはデバッグです!");
   char *token = strtok(cparam, delim);
   while(token != NULL) {
@@ -73,32 +104,15 @@ int *token_parse(char *cparam) {
 }
 
 
+
 void cut_command(FILE *file) {
   if(copt) {
-    int lower_bound = 0;
-    int upper_bound = INF;
 
-    int match_num = regex_check(cparam);
+    bool is_regex_matched = regex_check(cparam);
     //printf("match_numは%d", match_num);
-    //c 5- のような場合
-    if(match_num == 1) {
-      sscanf(cparam, "%d-", &lower_bound);
-      lower_bound -= 1; //0-index
-    }
-    // c -7のような場合
-    if(match_num == 2) {
-      sscanf(cparam, "-%d", &upper_bound);
-      upper_bound -= 1;
-    }
-    // c 2-7のような場合
-    if(match_num == 3) {
-      sscanf(cparam, "%d-%d", &lower_bound, &upper_bound);
-      upper_bound -= 1;
-      lower_bound -= 1;
-    }
     //いずれかの正規表現にマッチした場合の処理
-    if(match_num == 1 || match_num == 2 || match_num == 3) {
-      printf("debug\n");
+    if(is_regex_matched) {
+      //printf("debug\n");
       int now_index = 0; //現在の行頭から0-indexで何番目か
       int c;
       while((c = fgetc(file)) != EOF) {
@@ -114,8 +128,8 @@ void cut_command(FILE *file) {
         now_index += 1;
       }
       fclose(file); 
-      }
-    //-c 2,3,4のような形でオプションが与えられる場合の処理
+    }
+    //	-c 2,3,4のような形でオプションが与えられる場合の処理
     else {       
       int *token_list_c = token_parse(cparam);
       int now_index = 0; //現在の行頭から0-indexで何番目か
