@@ -99,8 +99,40 @@ void cut_command(FILE *file) {
       }
       fclose(file); 
     }
+    //-c 2,3,4のような形でオプションが与えられる場合の処理
+    else {       
+      char *delim = ",";
+      int delim_count = 0;
+      int token_list[INF];
+      char *token = strtok(cparam, delim);
+      while(token != NULL) {
+	token_list[delim_count] = atoi(token)-1;
+	delim_count += 1;
+	token = strtok(NULL, delim);
+      }
+      int now_index = 0; //現在の行頭から0-indexで何番目か
+      int c;
+      while((c = fgetc(file)) != EOF) {
+        //改行の場合
+        if(c == '\n') {
+          putchar(c);
+	  now_index = 0;
+	  continue;
+        }
+        else {
+          for(int i = 0; i < delim_count; i++) {
+	    int cut_index = token_list[i];
+	    if(now_index == cut_index) {
+	      putchar(c);
+	    }
+	  }
+        }
+        now_index += 1;
+      }
+      fclose(file); 
+      }
+    }
 
-  }
 
   if(fopt && dopt) {
     int cut_field = atoi(fparam);
