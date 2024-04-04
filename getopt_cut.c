@@ -25,7 +25,11 @@ regmatch_t match[4];
 int size;
 char result[128];
 
-const int INF = 10000;
+#define INF 10000
+int token_list[INF];
+
+char *delim = ",";
+int delim_count = 0;
 
 int regex_check(char *checkstring) {
   if(regcomp(&regexBuffer, regex_1, REG_EXTENDED | REG_NEWLINE) != 0) {
@@ -34,25 +38,38 @@ int regex_check(char *checkstring) {
   }
   size = sizeof(match)/sizeof(regmatch_t);
   if(regexec(&regexBuffer, checkstring, size, match, 0) == 0) {
+    regfree(&regexBuffer);
     return 1;
   }
-  regfree(&regexBuffer);
 
   if(regcomp(&regexBuffer, regex_2, REG_EXTENDED | REG_NEWLINE) != 0) {
     return -1;
   }
   if(regexec(&regexBuffer, checkstring, size, match, 0) == 0) {
+    regfree(&regexBuffer);
     return 2;
   }
-  regfree(&regexBuffer);
  
   if(regcomp(&regexBuffer, regex_3, REG_EXTENDED | REG_NEWLINE) != 0) {
     return -1;
   }
   if(regexec(&regexBuffer, checkstring, size, match, 0) == 0) {
+    regfree(&regexBuffer);
     return 3;
   }
-  regfree(&regexBuffer);
+  return 0;
+}
+
+int *token_parse(char *cparam) {
+  //int *tolen_list[INF];
+  //printf("これはデバッグです!");
+  char *token = strtok(cparam, delim);
+  while(token != NULL) {
+    token_list[delim_count] = atoi(token)-1;
+    delim_count += 1;
+    token = strtok(NULL, delim);
+  }
+  return token_list;
 }
 
 
@@ -62,27 +79,26 @@ void cut_command(FILE *file) {
     int upper_bound = INF;
 
     int match_num = regex_check(cparam);
+    //printf("match_numは%d", match_num);
     //c 5- のような場合
     if(match_num == 1) {
       sscanf(cparam, "%d-", &lower_bound);
-      printf("パターン1");
       lower_bound -= 1; //0-index
     }
     // c -7のような場合
     if(match_num == 2) {
       sscanf(cparam, "-%d", &upper_bound);
-      printf("パターン2");
       upper_bound -= 1;
     }
     // c 2-7のような場合
     if(match_num == 3) {
       sscanf(cparam, "%d-%d", &lower_bound, &upper_bound);
-      printf("パターン3");
       upper_bound -= 1;
       lower_bound -= 1;
     }
     //いずれかの正規表現にマッチした場合の処理
     if(match_num == 1 || match_num == 2 || match_num == 3) {
+      printf("debug\n");
       int now_index = 0; //現在の行頭から0-indexで何番目か
       int c;
       while((c = fgetc(file)) != EOF) {
@@ -98,20 +114,15 @@ void cut_command(FILE *file) {
         now_index += 1;
       }
       fclose(file); 
-    }
+      }
     //-c 2,3,4のような形でオプションが与えられる場合の処理
     else {       
-      char *delim = ",";
-      int delim_count = 0;
-      int token_list[INF];
-      char *token = strtok(cparam, delim);
-      while(token != NULL) {
-	token_list[delim_count] = atoi(token)-1;
-	delim_count += 1;
-	token = strtok(NULL, delim);
-      }
+      int *token_list_c = token_parse(cparam);
       int now_index = 0; //現在の行頭から0-indexで何番目か
       int c;
+      for(int i = 0; i < delim_count; i++) {
+        //printf("デバッグ: token_list_cの%d番目の要素は%d", i, token_list_c[i]);
+      }
       while((c = fgetc(file)) != EOF) {
         //改行の場合
         if(c == '\n') {
@@ -121,7 +132,7 @@ void cut_command(FILE *file) {
         }
         else {
           for(int i = 0; i < delim_count; i++) {
-	    int cut_index = token_list[i];
+	    int cut_index = token_list_c[i];
 	    if(now_index == cut_index) {
 	      putchar(c);
 	    }
@@ -134,10 +145,17 @@ void cut_command(FILE *file) {
     }
 
 
-  if(fopt && dopt) {
+  if(fopt) {
     int cut_field = atoi(fparam);
-    char cut_letter = dparam[0]; //-dで指定した区切り文字：
     cut_field -= 1;
+    
+    char cut_letter;
+    if(dopt) {
+      cut_letter = dparam[0]; //-dで指定した区切り文字：
+    }
+    else {
+      cut_letter = '\t';
+    }
     int now_field = 0; //先頭から-dで指定した区切りで何フィールド目にいるか
     char c;
     while((c = fgetc(file)) != EOF) {
@@ -184,22 +202,13 @@ int main(int argc, char *argv[]) {
     }
   }
  
-//  char *delim_1 = ",";
- // char *delim_2 = ":";
- // int delim_1_count = 0;
- // int delim_2_count = 0;
- // char *token_1 = strtok(cparam, delim_1);
-  //while(token_1 != NULL) {
-   // delim_1_count += 1;
-    //printf("%s\n", token_1);
-    //token_1 = strtok(NULL, delim_1);
- // }
-  //char *token_2 = strtok(cparam, delim_2);
-  //while(token_2 != NULL) {
-   // delim_2_count += 1;
-    //printf("%s\n", token_2);
-    //token_2 = strtok(NULL, delim_2);
-  //}
+  //オプションの組み合わせが不適切の場合の処理
+  int pattern1 = (bopt | copt | fopt); //-b, -c, -fのいずれかのオプションが必須
+  int pattern2 = (dopt & !fopt);
+  if(pattern1 == 0 || pattern2) {
+    fprintf(stderr, "オプションの組み合わせが不適切です\n");
+    exit(1);
+  }
 
   for(int i = optind; i < argc; i++) {
     FILE *file;
