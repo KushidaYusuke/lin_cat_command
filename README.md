@@ -74,3 +74,13 @@ B3C4D5E
 135
 680
 ```
+
+### 例5(オプションの引数が誤っている場合
+```
+./out -c 2,3,, num.txt
+```
+
+```
+cut: fields are numbered from 1
+Try 'cut --help' for more information.
+```
