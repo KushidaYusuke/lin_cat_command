@@ -168,7 +168,7 @@ void cut_command(FILE *file) {
     }
     bool is_regex_matched_f = regex_check(fparam);
     if(is_regex_matched_f) {
-      printf("デバッグ\n");
+      bool is_first_delim = true; //初めの区切り文字であるか判定
       int now_field = 0;
     
       int c;      
@@ -178,6 +178,7 @@ void cut_command(FILE *file) {
         if(c == '\n') {
           putchar(c);
 	  now_field = 0;
+	  is_first_delim = true;
 	  continue;
         }
         if(c == cut_letter) {
@@ -186,7 +187,13 @@ void cut_command(FILE *file) {
         }
       
         if((now_field >= lower_bound) && (now_field <= upper_bound)) {
-          putchar(c);
+          if(c != cut_letter) {
+	    is_first_delim = false;
+	  }
+	  if(!is_first_delim) {
+            putchar(c);
+	    }
+
 	}
       }
     }
