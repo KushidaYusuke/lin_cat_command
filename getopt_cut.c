@@ -279,7 +279,8 @@ int main(int argc, char *argv[]) {
 	break;
     }
   }
- 
+  
+
   //オプションの組み合わせが不適切の場合の処理
   int pattern1 = (bopt | copt | fopt); //-b, -c, -fのいずれかのオプションが必須
   int pattern2 = (dopt & !fopt);
@@ -287,7 +288,12 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "オプションの組み合わせが不適切です\n");
     exit(1);
   }
-
+  
+  if(argc == optind) {
+    while(1) {
+      cut_command(stdin); 
+    }
+  }
   for(int i = optind; i < argc; i++) {
     FILE *file;
     file = fopen(argv[i], "r");
