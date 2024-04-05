@@ -26,19 +26,20 @@ regmatch_t match[4];
 int size;
 char result[128];
 
-#define INF 10000
+#define INF 100000
 int token_list[INF];
 
-char *delim = ",";
-int delim_count = 0;
+char *delim = ",";//トークンの区切り文字
+int delim_count = 0;//トークンの数
 
 
-int match_num = 0;
+int match_num = 0;//どの正規表現にマッチしたかを表す
 
+//%d-%d, -%d, %d-型の引数が渡される
 int lower_bound = 0;
 int upper_bound = INF;
 
-bool token_regex_matched = false;
+bool token_regex_matched = false;//引数が3や2,3,4という形(regex_4変数で表現される正規表現に対応)で与えられているかを判定
 
 //正規表現の判定をする関数
 //オプションの引数が%d-, %d-%d, -%dという形をしているときにTrue, それ以外の場合にfalseを返す
@@ -145,7 +146,7 @@ void cut_command(FILE *file) {
     else {       
       int *token_list_c = token_parse(cparam);
       if(token_regex_matched==false) {
-        fprintf(stderr, "引数が異常です\n");
+        fprintf(stderr, "cut: fields are numbered from 1\nTry 'cut --help' for more information.\n");
 	exit(1);
       }
       int now_index = 0; //現在の行頭から0-indexで何番目か
@@ -355,24 +356,12 @@ int main(int argc, char *argv[]) {
     FILE *file;
     file = fopen(argv[i], "r");
     if(file == NULL) {
-      fprintf(stderr, "ファイルを開くことができません\n");
+      fprintf(stderr, "cut: %s:No such file or directory\n", argv[i]);
       exit(1);
     }
     cut_command(file);
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
