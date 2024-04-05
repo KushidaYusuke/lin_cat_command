@@ -20,6 +20,7 @@ char *dparam = NULL;
 const char regex_1[] = "^([0-9]+)-$";
 const char regex_2[] = "^-([0-9]+)$";
 const char regex_3[] = "^([0-9]+)-([0-9]+)$";
+const char regex_4[] = "^[0-9](,[0-9])*$";
 regex_t regexBuffer;
 regmatch_t match[4];
 int size;
@@ -37,6 +38,7 @@ int match_num = 0;
 int lower_bound = 0;
 int upper_bound = INF;
 
+bool token_regex_matched = false;
 
 //正規表現の判定をする関数
 //オプションの引数が%d-, %d-%d, -%dという形をしているときにTrue, それ以外の場合にfalseを返す
@@ -97,6 +99,14 @@ bool regex_check(char *checkstring) {
 
 //オプションの引数が1,3,4という形をしている場合にそれぞれの数値をリストに入れて返す
 int *token_parse(char *param) {
+  if(regcomp(&regexBuffer, regex_4, REG_EXTENDED | REG_NEWLINE) != 0) {  
+  }
+  size = sizeof(match)/sizeof(regmatch_t);
+  if(regexec(&regexBuffer, param, size, match, 0) == 0) {
+
+    regfree(&regexBuffer);
+    token_regex_matched = true;
+  }
   char *token = strtok(param, delim);
   while(token != NULL) {
     if(!bopt) {token_list[delim_count] = atoi(token)-1;}
@@ -108,15 +118,13 @@ int *token_parse(char *param) {
 }
 
 
-
+//それぞれの指定されたファイルをオプションに従って処理する
 void cut_command(FILE *file) {
   if(copt) {
 
     bool is_regex_matched = regex_check(cparam);
-    //printf("match_numは%d", match_num);
     //いずれかの正規表現にマッチした場合の処理
     if(is_regex_matched) {
-      //printf("debug\n");
       int now_index = 0; //現在の行頭から0-indexで何番目か
       int c;
       while((c = fgetc(file)) != EOF) {
@@ -136,6 +144,10 @@ void cut_command(FILE *file) {
     //	-c 2,3,4のような形でオプションが与えられる場合の処理
     else {       
       int *token_list_c = token_parse(cparam);
+      if(token_regex_matched==false) {
+        fprintf(stderr, "引数が異常です\n");
+	exit(1);
+      }
       int now_index = 0; //現在の行頭から0-indexで何番目か
       int c;
       while((c = fgetc(file)) != EOF) {
@@ -161,9 +173,6 @@ void cut_command(FILE *file) {
 
 
   if(fopt) {
-    //int cut_field = atoi(fparam);
-    //cut_field -= 1;
-    
     char cut_letter;
     if(dopt) {
       cut_letter = dparam[0]; //-dで指定した区切り文字：    
@@ -206,6 +215,10 @@ void cut_command(FILE *file) {
     else {
       int *token_list_d = token_parse(fparam);
       
+      if(token_regex_matched==false) {
+        fprintf(stderr, "引数が異常です\n");
+	exit(1);
+      }
       bool is_first_delim = true; //初めの区切り文字であるか判定
       int now_field = 0;
     
@@ -269,10 +282,11 @@ void cut_command(FILE *file) {
     else {       
       int *token_list_b = token_parse(bparam);
       int now_byte = 0; //現在の行頭から0-indexで何番目か
-      char c;
-      for(int i = 0; i < delim_count; i++) {
-        //printf("デバッグ: token_list_cの%d番目の要素は%d", i, token_list_c[i]);
+      if(token_regex_matched==false) {
+        fprintf(stderr, "引数が異常です\n");
+	exit(1);
       }
+      char c;
       while((c = fgetc(file)) != EOF) {
         now_byte += (int)(sizeof(c));
 	//改行の場合
@@ -295,7 +309,9 @@ void cut_command(FILE *file) {
     }
   }
 
+
 int main(int argc, char *argv[]) {
+  //オプションの処理
   int opt;
   while((opt = getopt(argc, argv, "b:c:f:d:")) != -1) {
     switch(opt) {
@@ -321,17 +337,20 @@ int main(int argc, char *argv[]) {
 
   //オプションの組み合わせが不適切の場合の処理
   int pattern1 = (bopt | copt | fopt); //-b, -c, -fのいずれかのオプションが必須
-  int pattern2 = (dopt & !fopt);
+  int pattern2 = (dopt & !fopt); //-dオプションは-fオプションとともに指定する必要がある
   if(pattern1 == 0 || pattern2) {
     fprintf(stderr, "オプションの組み合わせが不適切です\n");
     exit(1);
   }
-  
+ 
+ //ファイル名が指定されていない場合は標準入力から読み取る 
   if(argc == optind) {
     while(1) {
       cut_command(stdin); 
     }
   }
+
+  //ファイルを順番に読み込んで処理する
   for(int i = optind; i < argc; i++) {
     FILE *file;
     file = fopen(argv[i], "r");
@@ -342,22 +361,6 @@ int main(int argc, char *argv[]) {
     cut_command(file);
   }
 }
-  //ファイルが指定されない場合
-  //(optind == argc) {
-    //ile(1) {
-      //intf("標準入力から受け取る");
-    //
-  //
-  //r(int i = optind; i < argc; i++) {
-    //LE *file;
-    //le = fopen(argv[i], "r");
-    //(file == NULL) {
-      //rintf(stderr, "ファイルを開くことができませんでした\n");
-     //xit(1);
-    //
-   //at_program(file);
-   //close(file);
- //
 
 
 
