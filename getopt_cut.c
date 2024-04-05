@@ -63,20 +63,22 @@ bool regex_check(char *checkstring) {
   }
   if(match_num == 1) {
     sscanf(checkstring, "%d-", &lower_bound);
-    lower_bound -= 1; //0-index
+    if(!bopt){lower_bound -= 1;} //0-index
     upper_bound = INF;
   }
     // c -7のような場合
   if(match_num == 2) {
     sscanf(checkstring, "-%d", &upper_bound);
-    upper_bound -= 1;
+    if(!bopt){upper_bound -= 1;}
     lower_bound = 0;
   }
     // c 2-7のような場合
   if(match_num == 3) {
     sscanf(checkstring, "%d-%d", &lower_bound, &upper_bound);
-    upper_bound -= 1;
-    lower_bound -= 1;
+    if(!bopt) {
+      upper_bound -= 1;
+      lower_bound -= 1;
+    }
   }
   //いずれかの正規表現にマッチした場合
   if(match_num == 1 | match_num == 2 | match_num == 3) {
@@ -92,7 +94,8 @@ int *token_parse(char *param) {
   //printf("これはデバッグです!");
   char *token = strtok(param, delim);
   while(token != NULL) {
-    token_list[delim_count] = atoi(token)-1;
+    if(!bopt) {token_list[delim_count] = atoi(token)-1;}
+    else  {token_list[delim_count] = atoi(token);}
     delim_count += 1;
     token = strtok(NULL, delim);
   }
@@ -234,26 +237,59 @@ void cut_command(FILE *file) {
     }
 
 
-//    int now_field = 0; //先頭から-dで指定した区切りで何フィールド目にいるか
-//    char c;
-//    while((c = fgetc(file)) != EOF) {
-//	
-//    //改行の場合
-//      if(c == '\n') {
-//        putchar(c);
-//	now_field = 0;
-//	continue;
-//      }
-//      if(c == cut_letter) {
-//        now_field += 1;
-//	continue;
-//      }
-//        
-//      if(cut_field == now_field) {
-//        putchar(c);
-//	}
-//      }
-//    fclose(file);
+    }
+    
+
+
+  if(bopt) {
+    bool is_regex_matched_b = regex_check(bparam);
+    //printf("match_numは%d", match_num);
+    //いずれかの正規表現にマッチした場合の処理
+    if(is_regex_matched_b) {
+      int now_byte = 0; //現在の行頭から何バイト目か
+      char c;
+      while((c = fgetc(file)) != EOF) {
+	now_byte += (int)(sizeof(c));
+        //printf("デバッグ%d\n", now_byte);
+	//改行の場合
+        if(c == '\n') {
+          putchar(c);
+	  now_byte = 0;
+	  continue;
+        }
+        else if((now_byte >= lower_bound) && (now_byte <= upper_bound)) {
+          putchar(c);
+        }
+      }
+      fclose(file); 
+    }
+    //	-c 2,3,4のような形でオプションが与えられる場合の処理
+    else {       
+      int *token_list_b = token_parse(bparam);
+      int now_byte = 0; //現在の行頭から0-indexで何番目か
+      char c;
+      for(int i = 0; i < delim_count; i++) {
+        //printf("デバッグ: token_list_cの%d番目の要素は%d", i, token_list_c[i]);
+      }
+      while((c = fgetc(file)) != EOF) {
+        now_byte += (int)(sizeof(c));
+	//改行の場合
+        if(c == '\n') {
+          putchar(c);
+	  now_byte = 0;
+	  continue;
+        }
+        else {
+          for(int i = 0; i < delim_count; i++) {
+	    int cut_byte = token_list_b[i];
+	    if(now_byte == cut_byte) {
+	      putchar(c);
+	    }
+	  }
+        }
+      }
+      fclose(file); 
+      }
     }
   }
 
