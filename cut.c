@@ -339,7 +339,8 @@ int main(int argc, char *argv[]) {
   //オプションの組み合わせが不適切の場合の処理
   int pattern1 = (bopt | copt | fopt); //-b, -c, -fのいずれかのオプションが必須
   int pattern2 = (dopt & !fopt); //-dオプションは-fオプションとともに指定する必要がある
-  if(pattern1 == 0 || pattern2) {
+  int pattern3 = ((bopt & (copt | fopt)) | (copt & (bopt | fopt)) | (fopt & (copt | bopt))); //-b,-c,-fオプションのうち2つ以上が同時に指定するのは不可
+  if(pattern1 == 0 || pattern2 || pattern3) {
     fprintf(stderr, "オプションの組み合わせが不適切です\n");
     exit(1);
   }
