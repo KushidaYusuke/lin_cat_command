@@ -22,7 +22,7 @@ b,c
 
 ### 例2
 ```
-cut -f 1,3,5 -d "," comma.txt
+./out -f 1,3,5 -d "," comma.txt
 ```
 
 
