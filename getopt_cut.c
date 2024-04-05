@@ -197,6 +197,43 @@ void cut_command(FILE *file) {
 	}
       }
     }
+    //-f 2,3,4 -d ","のような形でオプションが与えられた場合の処理
+    else {
+      int *token_list_d = token_parse(fparam);
+      
+      bool is_first_delim = true; //初めの区切り文字であるか判定
+      int now_field = 0;
+    
+      int c;      
+      while((c = fgetc(file)) != EOF) {
+	
+        //改行の場合
+        if(c == '\n') {
+          putchar(c);
+	  now_field = 0;
+	  is_first_delim = true;
+	  continue;
+        }
+        if(c == cut_letter) {
+          now_field += 1;
+	//  continue;
+        }
+        
+	for(int i = 0; i < delim_count; i++) {  
+          int cut_field = token_list_d[i];
+	  if(now_field == cut_field) {
+            if(c != cut_letter) {
+	      is_first_delim = false;
+	    }
+	    if(!is_first_delim) {
+              putchar(c);
+	     }  
+	   }
+	}
+      }
+    }
+
+
 //    int now_field = 0; //先頭から-dで指定した区切りで何フィールド目にいるか
 //    char c;
 //    while((c = fgetc(file)) != EOF) {
