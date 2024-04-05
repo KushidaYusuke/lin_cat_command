@@ -75,7 +75,7 @@ B3C4D5E
 680
 ```
 
-### 例5(オプションの引数が誤っている場合
+### 例5(オプションの引数が誤っている場合)
 ```
 ./out -c 2,3,, num.txt
 ```
@@ -83,4 +83,14 @@ B3C4D5E
 ```
 cut: fields are numbered from 1
 Try 'cut --help' for more information.
+```
+
+### 例6(指定したファイルが存在しない場合)
+
+```
+./out -c 3 aaaaaa.txt
+```
+
+```
+cut: aaaaaa.txt:No such file or directory
 ```
