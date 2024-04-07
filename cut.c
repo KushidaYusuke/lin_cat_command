@@ -140,7 +140,6 @@ void cut_command(FILE *file) {
         }
         now_index += 1;
       }
-      fclose(file); 
     }
     //	-c 2,3,4のような形でオプションが与えられる場合の処理
     else {       
@@ -168,7 +167,6 @@ void cut_command(FILE *file) {
         }
         now_index += 1;
       }
-      fclose(file); 
       }
     }
 
@@ -277,7 +275,6 @@ void cut_command(FILE *file) {
           putchar(c);
         }
       }
-      fclose(file); 
     }
     //	-c 2,3,4のような形でオプションが与えられる場合の処理
     else {       
@@ -305,7 +302,6 @@ void cut_command(FILE *file) {
 	  }
         }
       }
-      fclose(file); 
       }
     }
   }
@@ -361,6 +357,8 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
     cut_command(file);
+    
+    fclose(file);
   }
 }
 
