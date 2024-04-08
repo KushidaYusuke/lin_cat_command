@@ -166,29 +166,64 @@ void cut_option_c(FILE *file) {
       }
       now_index += 1;
     }
-    }
-
+  }
 }
 
 
-//現在位置から行の末尾にかけて区切り文字が存在するか判定
-//input: 現在位置のポインタと指定された区切り文字	
-//output: 区切り文字が現在の行に存在するかを表すbool値
-bool check_delim_s(FILE *file, char cut_letter) {
-  int c;
-  while((c = fgetc(file)) != EOF) {
-    if(c == cut_letter) {
-      return true;
+//-bオプションが指定された場合の処理
+void cut_option_b(FILE *file) {
+  bool is_regex_matched_b = regex_check(bparam);
+  //printf("match_numは%d", match_num);
+  //いずれかの正規表現にマッチした場合の処理
+  if(is_regex_matched_b) {
+    int now_byte = 0; //現在の行頭から何バイト目か
+    char c;
+    while((c = fgetc(file)) != EOF) {
+      now_byte += (int)(sizeof(c));
+      //printf("デバッグ%d\n", now_byte);
+      //改行の場合
+      if(c == '\n') {
+        putchar(c);
+	now_byte = 0;
+	continue;
+    fclose(file);
+      }
+      else if((now_byte >= lower_bound) && (now_byte <= upper_bound)) {
+        putchar(c);
+      }
     }
-    //その行が終わるまでに指定した区切り文字が存在しなかった場合
-    if(c == '\n') {
-      return false;
+  }
+  //	-b 2,3,4のような形でオプションが与えられる場合の処理
+  else {       
+    int *token_list_b = token_parse(bparam);
+    int now_byte = 0; //現在は先頭から何バイト目か
+    if(token_regex_matched==false) {
+      fprintf(stderr, "引数が異常です\n");
+      exit(1);
+    }
+    char c;
+    while((c = fgetc(file)) != EOF) {
+      now_byte += (int)(sizeof(c));
+      //改行の場合
+      if(c == '\n') {
+        putchar(c);
+	now_byte = 0;
+	continue;
+      }
+      else {
+        for(int i = 0; i < delim_count; i++) {
+	  int cut_byte = token_list_b[i];
+	  if(now_byte == cut_byte) {
+	    putchar(c);
+	  }
+	}
+      }
     }
   }
 }
 
 
-
+//-fオプションが指定された場合の処理
 void cut_option_f(FILE *file) {
   char cut_letter;
   if(dopt) {
@@ -208,16 +243,14 @@ void cut_option_f(FILE *file) {
     int now_field = 0;  
     int c;      
     while((c = fgetc(file)) != EOF) {
-      tmp_stock[now_index] = c; //現在の行が終わるまで一時的に確保
-      now_index += 1;
       //改行の場合
       if(c == '\n') {
-        putchar(c);
-	if(sopt & !is_exist_cut_letter) continue;
+	if(sopt & !is_exist_cut_letter) ;
 	else if(!sopt & !is_exist_cut_letter) {
 	  for(int i = 0; i < now_index; i++) {
 	    putchar(tmp_stock[i]);
 	  }
+	  putchar('\n');
 	}
 	else {
 	  for(int i = 0; i < now_index; i++) {
@@ -233,6 +266,7 @@ void cut_option_f(FILE *file) {
 	      }
 	    }
 	  }
+	  putchar('\n');
 	}
 	now_field = 0;
 	is_first_delim = true;
@@ -241,108 +275,73 @@ void cut_option_f(FILE *file) {
 	continue;
       }
 
+      tmp_stock[now_index] = c; //現在の行が終わるまで一時的に確保
+      now_index += 1;
       if(c == cut_letter) {
 	is_exist_cut_letter = true;
       }
-    
-
-      }
     }
- 
-    //-f 2,3,4 -d ","のような形でオプションが与えられた場合の処理
-    else {
-      int *token_list_d = token_parse(fparam);
-      
-      if(token_regex_matched==false) {
-        fprintf(stderr, "引数が異常です\n");
-	exit(1);
-      }
-      bool is_first_delim = true; //初めの区切り文字であるか判定
-      int now_field = 0;
-    
-      int c;      
-      while((c = fgetc(file)) != EOF) {
-	
-        //改行の場合
-        if(c == '\n') {
-          putchar(c);
-	  now_field = 0;
-	  is_first_delim = true;
-	  continue;
-        }
-        if(c == cut_letter) {
-          now_field += 1;
-	//  continue;
-        }
-        
-	for(int i = 0; i < delim_count; i++) {  
-          int cut_field = token_list_d[i];
-	  if(now_field == cut_field) {
-            if(c != cut_letter) {
-	      is_first_delim = false;
-	    }
-	    if(!is_first_delim) {
-              putchar(c);
-	     }  
-	   }
+  } 
+  //-f 2,3,4 -d ","のような形でオプションが与えられた場合の処理
+  else {
+    int *token_list_d = token_parse(fparam);
+    if(token_regex_matched==false) {
+      fprintf(stderr, "引数が異常です\n");
+      exit(1);
+    }
+    int now_index = 0; //現在見ている文字が行頭から何番目か(0-index)
+    int now_field = 0;
+    bool is_exist_cut_letter = false;//現在見ている行について指定した区切り文字が存在するか
+    char tmp_stock[INF]; //Todo:後で動的配列に変更(各行の要素を一時的に保管)
+    bool is_first_delim = true; //現在見ている行で初めの区切り文字であるか判定
+    int c;      
+    while((c = fgetc(file)) != EOF) {
+      //改行の場合
+      if(c == '\n') {
+	if(sopt & !is_exist_cut_letter) ;
+	else if(!sopt & !is_exist_cut_letter) {
+	  for(int i = 0; i < now_index; i++) {
+	    putchar(tmp_stock[i]);
+	  }
+	  putchar('\n');
 	}
-      }
-    }
-}
-
-void cut_option_b(FILE *file) {
-  
-  if(bopt) {
-    bool is_regex_matched_b = regex_check(bparam);
-    //printf("match_numは%d", match_num);
-    //いずれかの正規表現にマッチした場合の処理
-    if(is_regex_matched_b) {
-      int now_byte = 0; //現在の行頭から何バイト目か
-      char c;
-      while((c = fgetc(file)) != EOF) {
-	now_byte += (int)(sizeof(c));
-        //printf("デバッグ%d\n", now_byte);
-	//改行の場合
-        if(c == '\n') {
-          putchar(c);
-	  now_byte = 0;
-	  continue;
-      fclose(file);
-        }
-        else if((now_byte >= lower_bound) && (now_byte <= upper_bound)) {
-          putchar(c);
-        }
-      }
-    }
-    //	-c 2,3,4のような形でオプションが与えられる場合の処理
-    else {       
-      int *token_list_b = token_parse(bparam);
-      int now_byte = 0; //現在の行頭から0-indexで何番目か
-      if(token_regex_matched==false) {
-        fprintf(stderr, "引数が異常です\n");
-	exit(1);
-      }
-      char c;
-      while((c = fgetc(file)) != EOF) {
-        now_byte += (int)(sizeof(c));
-	//改行の場合
-        if(c == '\n') {
-          putchar(c);
-	  now_byte = 0;
-	  continue;
-        }
-        else {
-          for(int i = 0; i < delim_count; i++) {
-	    int cut_byte = token_list_b[i];
-	    if(now_byte == cut_byte) {
-	      putchar(c);
+	else {
+	  for(int i = 0; i < now_index; i++) {
+	    if(tmp_stock[i] == cut_letter) {
+	      now_field += 1;
+	    }
+	    for(int j = 0; j < delim_count; j++) {  
+	      int cut_field = token_list_d[j];
+	      if(now_field == cut_field) {
+		if(tmp_stock[i] != cut_letter) {
+		  is_first_delim = false;
+		}
+		if(!is_first_delim) {
+		  putchar(tmp_stock[i]);
+		}  
+	      }
 	    }
 	  }
-        }
+	  putchar('\n');
+	}
+
+       	now_field = 0;
+	is_first_delim = true;
+	is_exist_cut_letter = false;
+	now_index = 0;
+	continue;
       }
-      }
+      //現在着目している文字をtmp_stock内にいったん格納 
+      tmp_stock[now_index] = c;
+      now_index += 1;
+      if(c == cut_letter) {
+        is_exist_cut_letter = true;
+      }      
     }
+  }
 }
+
+
 
 
 int main(int argc, char *argv[]) {
@@ -404,15 +403,9 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "cut: %s:No such file or directory\n", argv[i]);
       exit(1);
     }
-    if(copt) {
-      cut_option_c(file);
-    }
-    if(fopt) {
-      cut_option_f(file); 
-    }
-    if(bopt) {
-      cut_option_b(file);
-    }
+    if(copt) cut_option_c(file);
+    if(bopt) cut_option_b(file);
+    if(fopt) cut_option_f(file);
     fclose(file);
   }
 }
