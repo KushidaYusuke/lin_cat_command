@@ -246,10 +246,12 @@ void cut_option_f(FILE *file) {
     
     int now_index = 0; //現在見ている文字が行頭から何番目か(0-index)
     bool is_exist_cut_letter = false; //現在見ている行について区切り文字が存在するか判定
-    char tmp_stock[INF]; //Todo:後で動的配列に変更(各行の要素を一時的に保管)
+    char* tmp_stock = malloc(INIT_ALLOC*sizeof(char)); //各行の要素を一時的に保管
+    int now_alloc = INIT_ALLOC; //現在割り当てられているメモリの要素数
     bool is_first_delim = true; //現在見ている行で初めの区切り文字であるか判定
     int now_field = 0;  
     int c;      
+
     while((c = fgetc(file)) != EOF) {
       //改行の場合
       if(c == '\n') {
@@ -280,9 +282,16 @@ void cut_option_f(FILE *file) {
 	is_first_delim = true;
 	is_exist_cut_letter = false;
 	now_index = 0;
+	free(tmp_stock); //メモリを解放
+	tmp_stock = malloc(INIT_ALLOC*sizeof(int));
+        now_alloc = INIT_ALLOC;
 	continue;
       }
-
+      //確保したメモリが足りなくなった場合に追加で確保
+      if(now_index == now_alloc) {
+        tmp_stock = realloc(tmp_stock, (now_index+ADD_ALLOC)*sizeof(char));
+        now_alloc += ADD_ALLOC;
+      }
       tmp_stock[now_index] = c; //現在の行が終わるまで一時的に確保
       now_index += 1;
       if(c == cut_letter) {
@@ -298,9 +307,10 @@ void cut_option_f(FILE *file) {
       return;
     }
     int now_index = 0; //現在見ている文字が行頭から何番目か(0-index)
+    int now_alloc = INIT_ALLOC;
     int now_field = 0;
     bool is_exist_cut_letter = false;//現在見ている行について指定した区切り文字が存在するか
-    char tmp_stock[INF]; //Todo:後で動的配列に変更(各行の要素を一時的に保管)
+    char *tmp_stock = malloc(INIT_ALLOC*sizeof(char)); //各行の要素を一時的に保管する
     bool is_first_delim = true; //現在見ている行で初めの区切り文字であるか判定
     int c;      
     while((c = fgetc(file)) != EOF) {
@@ -337,9 +347,16 @@ void cut_option_f(FILE *file) {
 	is_first_delim = true;
 	is_exist_cut_letter = false;
 	now_index = 0;
+	now_alloc = INIT_ALLOC;
+	free(tmp_stock);
+	tmp_stock = malloc(INIT_ALLOC*sizeof(char));
 	continue;
       }
       //現在着目している文字をtmp_stock内にいったん格納 
+      if(now_index == now_alloc) {
+        tmp_stock = realloc(tmp_stock, (now_index+ADD_ALLOC)*sizeof(char));
+	now_alloc += ADD_ALLOC;
+      }
       tmp_stock[now_index] = c;
       now_index += 1;
       if(c == cut_letter) {
