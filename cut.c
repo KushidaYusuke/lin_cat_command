@@ -9,7 +9,7 @@ int bopt = 0;
 int copt = 0;
 int fopt = 0;
 int dopt = 0;
-
+int sopt = 0;
 char *bparam = NULL;
 char *cparam = NULL;
 char *fparam = NULL;
@@ -170,6 +170,25 @@ void cut_option_c(FILE *file) {
 
 }
 
+
+//現在位置から行の末尾にかけて区切り文字が存在するか判定
+//input: 現在位置のポインタと指定された区切り文字	
+//output: 区切り文字が現在の行に存在するかを表すbool値
+bool check_delim_s(FILE *file, char cut_letter) {
+  int c;
+  while((c = fgetc(file)) != EOF) {
+    if(c == cut_letter) {
+      return true;
+    }
+    //その行が終わるまでに指定した区切り文字が存在しなかった場合
+    if(c == '\n') {
+      return false;
+    }
+  }
+}
+
+
+
 void cut_option_f(FILE *file) {
   char cut_letter;
   if(dopt) {
@@ -179,36 +198,57 @@ void cut_option_f(FILE *file) {
     cut_letter = '\t';
   }
   bool is_regex_matched_f = regex_check(fparam);
+  //区切り文字が%d-, %d-%d, -%d型の場合
   if(is_regex_matched_f) {
-    bool is_first_delim = true; //初めの区切り文字であるか判定
-    int now_field = 0;
-  
+    
+    int now_index = 0; //現在見ている文字が行頭から何番目か(0-index)
+    bool is_exist_cut_letter = false; //現在見ている行について区切り文字が存在するか判定
+    char tmp_stock[INF]; //Todo:後で動的配列に変更(各行の要素を一時的に保管)
+    bool is_first_delim = true; //現在見ている行で初めの区切り文字であるか判定
+    int now_field = 0;  
     int c;      
     while((c = fgetc(file)) != EOF) {
-      
+      tmp_stock[now_index] = c; //現在の行が終わるまで一時的に確保
+      now_index += 1;
       //改行の場合
       if(c == '\n') {
         putchar(c);
+	if(sopt & !is_exist_cut_letter) continue;
+	else if(!sopt & !is_exist_cut_letter) {
+	  for(int i = 0; i < now_index; i++) {
+	    putchar(tmp_stock[i]);
+	  }
+	}
+	else {
+	  for(int i = 0; i < now_index; i++) {
+	    if(tmp_stock[i] == cut_letter) {
+	      now_field += 1;
+	    }
+	    if((now_field >= lower_bound) && (now_field <= upper_bound)) {
+	      if(tmp_stock[i] != cut_letter) {
+	        is_first_delim = false;
+	      }
+	      if(!is_first_delim) {
+	        putchar(tmp_stock[i]);
+	      }
+	    }
+	  }
+	}
 	now_field = 0;
 	is_first_delim = true;
+	is_exist_cut_letter = false;
+	now_index = 0;
 	continue;
       }
+
       if(c == cut_letter) {
-        now_field += 1;
-      //  continue;
+	is_exist_cut_letter = true;
       }
     
-      if((now_field >= lower_bound) && (now_field <= upper_bound)) {
-        if(c != cut_letter) {
-	  is_first_delim = false;
-	}
-	if(!is_first_delim) {
-          putchar(c);
-	  }
 
       }
     }
-  }
+ 
     //-f 2,3,4 -d ","のような形でオプションが与えられた場合の処理
     else {
       int *token_list_d = token_parse(fparam);
@@ -267,6 +307,7 @@ void cut_option_b(FILE *file) {
           putchar(c);
 	  now_byte = 0;
 	  continue;
+      fclose(file);
         }
         else if((now_byte >= lower_bound) && (now_byte <= upper_bound)) {
           putchar(c);
@@ -307,7 +348,7 @@ void cut_option_b(FILE *file) {
 int main(int argc, char *argv[]) {
   //オプションの処理
   int opt;
-  while((opt = getopt(argc, argv, "b:c:f:d:")) != -1) {
+  while((opt = getopt(argc, argv, "b:c:f:d:s")) != -1) {
     switch(opt) {
       case 'b':
         bopt = 1;
@@ -325,13 +366,15 @@ int main(int argc, char *argv[]) {
         dopt = 1;
 	dparam = optarg;
 	break;
+      case 's':
+        sopt = 1;
     }
   }
   
 
   //オプションの組み合わせが不適切の場合の処理
   int pattern1 = (bopt | copt | fopt); //-b, -c, -fのいずれかのオプションが必須
-  int pattern2 = (dopt & !fopt); //-dオプションは-fオプションとともに指定する必要がある
+  int pattern2 = (dopt & !fopt) | (sopt & !fopt); //-d, -sオプションは-fオプションとともに指定する必要がある
   int pattern3 = ((bopt & (copt | fopt)) | (copt & (bopt | fopt)) | (fopt & (copt | bopt))); //-b,-c,-fオプションのうち2つ以上が同時に指定するのは不可
   if(pattern1 == 0 || pattern2 || pattern3) {
     fprintf(stderr, "オプションの組み合わせが不適切です\n");
