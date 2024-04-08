@@ -119,97 +119,96 @@ int *token_parse(char *param) {
 }
 
 
-//それぞれの指定されたファイルをオプションに従って処理する
-void cut_command(FILE *file) {
-  if(copt) {
-
-    bool is_regex_matched = regex_check(cparam);
-    //いずれかの正規表現にマッチした場合の処理
-    if(is_regex_matched) {
-      int now_index = 0; //現在の行頭から0-indexで何番目か
-      int c;
-      while((c = fgetc(file)) != EOF) {
-        //改行の場合
-        if(c == '\n') {
-          putchar(c);
-	  now_index = 0;
-	  continue;
-        }
-        else if((now_index >= lower_bound) && (now_index <= upper_bound)) {
-          putchar(c);
-        }
-        now_index += 1;
+//-cオプションが指定された場合の処理	
+void cut_option_c(FILE *file) {
+  
+  bool is_regex_matched = regex_check(cparam);
+  //いずれかの正規表現にマッチした場合の処理
+  if(is_regex_matched) {
+    int now_index = 0; //現在の行頭から0-indexで何番目か
+    int c;
+    while((c = fgetc(file)) != EOF) {
+      //改行の場合
+      if(c == '\n') {
+        putchar(c);
+	now_index = 0;
+	continue;
       }
+      else if((now_index >= lower_bound) && (now_index <= upper_bound)) {
+        putchar(c);
+      }
+      now_index += 1;
     }
-    //	-c 2,3,4のような形でオプションが与えられる場合の処理
-    else {       
-      int *token_list_c = token_parse(cparam);
-      if(token_regex_matched==false) {
-        fprintf(stderr, "cut: fields are numbered from 1\nTry 'cut --help' for more information.\n");
-	exit(1);
+  }
+  //	-c 2,3,4のような形でオプションが与えられる場合の処理
+  else {       
+    int *token_list_c = token_parse(cparam);
+    if(token_regex_matched==false) {
+      fprintf(stderr, "cut: fields are numbered from 1\nTry 'cut --help' for more information.\n");
+      exit(1);
+    }
+    int now_index = 0; //現在の行頭から0-indexで何番目か
+    int c;
+    while((c = fgetc(file)) != EOF) {
+      //改行の場合
+      if(c == '\n') {
+        putchar(c);
+	now_index = 0;
+	continue;
       }
-      int now_index = 0; //現在の行頭から0-indexで何番目か
-      int c;
-      while((c = fgetc(file)) != EOF) {
-        //改行の場合
-        if(c == '\n') {
-          putchar(c);
-	  now_index = 0;
-	  continue;
-        }
-        else {
-          for(int i = 0; i < delim_count; i++) {
-	    int cut_index = token_list_c[i];
-	    if(now_index == cut_index) {
-	      putchar(c);
-	    }
+      else {
+        for(int i = 0; i < delim_count; i++) {
+	  int cut_index = token_list_c[i];
+	  if(now_index == cut_index) {
+	    putchar(c);
 	  }
-        }
-        now_index += 1;
-      }
-      }
-    }
-
-
-  if(fopt) {
-    char cut_letter;
-    if(dopt) {
-      cut_letter = dparam[0]; //-dで指定した区切り文字：    
-    }
-    else {
-      cut_letter = '\t';
-    }
-    bool is_regex_matched_f = regex_check(fparam);
-    if(is_regex_matched_f) {
-      bool is_first_delim = true; //初めの区切り文字であるか判定
-      int now_field = 0;
-    
-      int c;      
-      while((c = fgetc(file)) != EOF) {
-	
-        //改行の場合
-        if(c == '\n') {
-          putchar(c);
-	  now_field = 0;
-	  is_first_delim = true;
-	  continue;
-        }
-        if(c == cut_letter) {
-          now_field += 1;
-	//  continue;
-        }
-      
-        if((now_field >= lower_bound) && (now_field <= upper_bound)) {
-          if(c != cut_letter) {
-	    is_first_delim = false;
-	  }
-	  if(!is_first_delim) {
-            putchar(c);
-	    }
-
 	}
       }
+      now_index += 1;
     }
+    }
+
+}
+
+void cut_option_f(FILE *file) {
+  char cut_letter;
+  if(dopt) {
+    cut_letter = dparam[0]; //-dで指定した区切り文字：    
+  }
+  else {
+    cut_letter = '\t';
+  }
+  bool is_regex_matched_f = regex_check(fparam);
+  if(is_regex_matched_f) {
+    bool is_first_delim = true; //初めの区切り文字であるか判定
+    int now_field = 0;
+  
+    int c;      
+    while((c = fgetc(file)) != EOF) {
+      
+      //改行の場合
+      if(c == '\n') {
+        putchar(c);
+	now_field = 0;
+	is_first_delim = true;
+	continue;
+      }
+      if(c == cut_letter) {
+        now_field += 1;
+      //  continue;
+      }
+    
+      if((now_field >= lower_bound) && (now_field <= upper_bound)) {
+        if(c != cut_letter) {
+	  is_first_delim = false;
+	}
+	if(!is_first_delim) {
+          putchar(c);
+	  }
+
+      }
+    }
+  }
     //-f 2,3,4 -d ","のような形でオプションが与えられた場合の処理
     else {
       int *token_list_d = token_parse(fparam);
@@ -249,12 +248,10 @@ void cut_command(FILE *file) {
 	}
       }
     }
+}
 
-
-    }
-    
-
-
+void cut_option_b(FILE *file) {
+  
   if(bopt) {
     bool is_regex_matched_b = regex_check(bparam);
     //printf("match_numは%d", match_num);
@@ -304,7 +301,7 @@ void cut_command(FILE *file) {
       }
       }
     }
-  }
+}
 
 
 int main(int argc, char *argv[]) {
@@ -344,9 +341,17 @@ int main(int argc, char *argv[]) {
  //ファイル名が指定されていない場合は標準入力から読み取る 
   if(argc == optind) {
     while(1) {
-      cut_command(stdin); 
+      if(copt) {
+	cut_option_c(stdin);
+      }
+      if(fopt) {
+	cut_option_f(stdin); 
+      }
+      if(bopt) {
+	cut_option_b(stdin);
+      }
     }
-  }
+ }
 
   //ファイルを順番に読み込んで処理する
   for(int i = optind; i < argc; i++) {
@@ -356,8 +361,15 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "cut: %s:No such file or directory\n", argv[i]);
       exit(1);
     }
-    cut_command(file);
-    
+    if(copt) {
+      cut_option_c(file);
+    }
+    if(fopt) {
+      cut_option_f(file); 
+    }
+    if(bopt) {
+      cut_option_b(file);
+    }
     fclose(file);
   }
 }
