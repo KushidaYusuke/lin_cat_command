@@ -27,8 +27,9 @@ int size;
 char result[128];
 
 #define INF 100000
-int token_list[INF];
 
+#define INIT_ALLOC 3 //初めに確保するメモリの要素数	
+#define ADD_ALLOC 10 //確保したメモリが足りなくなった場合に追加で確保する要素数
 char *delim = ",";//トークンの区切り文字
 int delim_count = 0;//トークンの数
 
@@ -100,6 +101,7 @@ bool regex_check(char *checkstring) {
 
 //オプションの引数が1,3,4という形をしている場合にそれぞれの数値をリストに入れて返す
 int *token_parse(char *param) {
+  int *token_list = malloc(INIT_ALLOC*sizeof(int)); //int型INIT_ALLOC個分のメモリを事前に確保
   if(regcomp(&regexBuffer, regex_4, REG_EXTENDED | REG_NEWLINE) != 0) {  
   }
   size = sizeof(match)/sizeof(regmatch_t);
@@ -108,8 +110,15 @@ int *token_parse(char *param) {
     regfree(&regexBuffer);
     token_regex_matched = true;
   }
+
   char *token = strtok(param, delim);
+  int alloc_num = INIT_ALLOC; //現在割り当てられている要素数
   while(token != NULL) {
+    //確保したメモリが足りなくなった場合に追加で確保
+    if(delim_count == alloc_num) {
+      token_list = realloc(token_list, (delim_count+ADD_ALLOC)*sizeof(int)); 
+      alloc_num += ADD_ALLOC;
+    }
     if(!bopt) {token_list[delim_count] = atoi(token)-1;}
     else  {token_list[delim_count] = atoi(token);}
     delim_count += 1;
@@ -186,7 +195,6 @@ void cut_option_b(FILE *file) {
         putchar(c);
 	now_byte = 0;
 	continue;
-    fclose(file);
       }
       else if((now_byte >= lower_bound) && (now_byte <= upper_bound)) {
         putchar(c);
