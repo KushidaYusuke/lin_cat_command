@@ -26,21 +26,21 @@ regmatch_t match[4];
 int size;
 char result[128];
 
-#define INF 100000
-
 #define INIT_ALLOC 3 //初めに確保するメモリの要素数	
 #define ADD_ALLOC 10 //確保したメモリが足りなくなった場合に追加で確保する要素数
 char *delim = ",";//トークンの区切り文字
 int delim_count = 0;//トークンの数
-
-
 int match_num = 0;//どの正規表現にマッチしたかを表す
 
 //%d-%d, -%d, %d-型の引数が渡される
+#define INF 1000000
 int lower_bound = 0;
 int upper_bound = INF;
 
 bool token_regex_matched = false;//引数が3や2,3,4という形(regex_4変数で表現される正規表現に対応)で与えられているかを判定
+
+//エラーを表す変数
+bool regex_match_error = false; //入力された引数に対して対応する正規表現が存在しない場合はエラー
 
 //正規表現の判定をする関数
 //オプションの引数が%d-, %d-%d, -%dという形をしているときにTrue, それ以外の場合にfalseを返す
@@ -153,8 +153,8 @@ void cut_option_c(FILE *file) {
   else {       
     int *token_list_c = token_parse(cparam);
     if(token_regex_matched==false) {
-      fprintf(stderr, "cut: fields are numbered from 1\nTry 'cut --help' for more information.\n");
-      exit(1);
+      regex_match_error = true;
+      return;
     }
     int now_index = 0; //現在の行頭から0-indexで何番目か
     int c;
@@ -206,8 +206,8 @@ void cut_option_b(FILE *file) {
     int *token_list_b = token_parse(bparam);
     int now_byte = 0; //現在は先頭から何バイト目か
     if(token_regex_matched==false) {
-      fprintf(stderr, "引数が異常です\n");
-      exit(1);
+      regex_match_error = true;
+      return;
     }
     char c;
     while((c = fgetc(file)) != EOF) {
@@ -294,8 +294,8 @@ void cut_option_f(FILE *file) {
   else {
     int *token_list_d = token_parse(fparam);
     if(token_regex_matched==false) {
-      fprintf(stderr, "引数が異常です\n");
-      exit(1);
+      regex_match_error = true;
+      return;
     }
     int now_index = 0; //現在見ている文字が行頭から何番目か(0-index)
     int now_field = 0;
@@ -415,6 +415,11 @@ int main(int argc, char *argv[]) {
     if(bopt) cut_option_b(file);
     if(fopt) cut_option_f(file);
     fclose(file);
+    //エラーが起こった場合の処理
+    if(regex_match_error) {
+      fprintf(stderr, "cut: fields are numbered from 1\nTry 'cut --help' for more information.\n");
+      exit(1);
+    }
   }
 }
 
