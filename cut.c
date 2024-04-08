@@ -408,17 +408,16 @@ int main(int argc, char *argv[]) {
  //ファイル名が指定されていない場合は標準入力から読み取る 
   if(argc == optind) {
     while(1) {
-      if(copt) {
-	cut_option_c(stdin);
-      }
-      if(fopt) {
-	cut_option_f(stdin); 
-      }
-      if(bopt) {
-	cut_option_b(stdin);
+      if(copt) cut_option_c(stdin);
+      if(fopt) cut_option_f(stdin); 
+      if(bopt) cut_option_b(stdin);
+    
+      if(regex_match_error) {
+        fprintf(stderr, "cut: fields are numbered from 1\nTry 'cut --help' for more information.\n");
+        exit(1);
       }
     }
- }
+  }
 
   //ファイルを順番に読み込んで処理する
   for(int i = optind; i < argc; i++) {
