@@ -28,9 +28,9 @@ char result[128];
 
 #define INIT_ALLOC 3 //初めに確保するメモリの要素数	
 #define ADD_ALLOC 10 //確保したメモリが足りなくなった場合に追加で確保する要素数
-char *delim = ",";//トークンの区切り文字
+char *delim = ","; //トークンの区切り文字
 int delim_count = 0;//トークンの数
-int match_num = 0;//どの正規表現にマッチしたかを表す
+int match_num = -1;//どの正規表現にマッチしたかを表す
 
 //%d-%d, -%d, %d-型の引数が渡される
 #define INF 1000000
@@ -50,7 +50,6 @@ bool regex_match_error = false; //入力された引数に対して対応する�
 bool regex_check(char *checkstring) {
   if(regcomp(&regexBuffer, regex_1, REG_EXTENDED | REG_NEWLINE) != 0) {
     return false;
-    
   }
   size = sizeof(match)/sizeof(regmatch_t);
   if(regexec(&regexBuffer, checkstring, size, match, 0) == 0) {
@@ -81,6 +80,7 @@ bool regex_check(char *checkstring) {
 }
 
 
+//オプションの引数について、数値のみから構成されているか確認
 bool is_digit_all(char *token) {
   int length = strlen(token);
   for(int i = 0; i < length; i++) {
@@ -91,10 +91,17 @@ bool is_digit_all(char *token) {
   return true;
 }
 
-char *token_list[100];
+
+//トークンに分割された引数を受け取る
+//各トークンについてトークンの形に応じて次のようにタイプをつけて、タイプに応じた処理をする
+//%d -> 0 %d- -> 1 -%d -> 2 %d-%d ->3 
+char *token_list[100]; //例: 2,3-4,6 -> token_list = {2, 3-4, 6-} type = {0,3,1}
 int type[100];
 
-int token_num = 0;
+int token_num = 0; //トークンの数(2, 3-5, -6 -> 3個)
+
+//オプションの引数を引数にとって、token_list, type配列を作成する
+//戻り値はトークンのパースに成功した場合true, 失敗した場合false
 bool create_token_parse_list(char *param) {
   char *token;
   token = strtok(param, delim);
@@ -108,18 +115,16 @@ bool create_token_parse_list(char *param) {
         index += 1;
       }
       else {
-        printf("パースエラー");
         return false;
       }
     }
     else {
       if(is_digit_all(token)) {
-        token_list[index] = token;
+	token_list[index] = token;
 	type[index] = 0;
 	index += 1;
       }
       else {
-        printf("パースエラー");
         return false;
       }
     }
@@ -130,16 +135,15 @@ bool create_token_parse_list(char *param) {
 }
 
 
+
+//現在見ているインデックスが引数で指定した範囲に含まれる場合true, 含まれない場合falseを返す
 bool check_range(int index) {
-  int length = token_num; //後で変更
+  int length = token_num; 
   for(int i = 0; i < length; i++) {
     if(type[i] == 0) {
-      //printf("index %d\n", index);
-      //printf("atoi(token_list[i]) %d\n", atoi(token_list[i]));
       int now_token = atoi(token_list[i]);
       if(!bopt) now_token -= 1;
       if(index == now_token) {
-        //printf("debug!!!!!!\n");
 	return true;
       }
       
@@ -203,6 +207,7 @@ void cut_option_c(FILE *file) {
     }
   }
   else {
+    regex_match_error = true;
     return;
   }
 }
@@ -226,6 +231,10 @@ void cut_option_b(FILE *file) {
         putchar(c);
       }
     }
+  }
+  else {
+    regex_match_error = true;
+    return;
   }
 }
 
@@ -296,6 +305,10 @@ void cut_option_f(FILE *file) {
       }
     }
   } 
+  else {
+    regex_match_error = true;
+    return;
+  }
 }
 
 
@@ -338,16 +351,16 @@ int main(int argc, char *argv[]) {
  
  //ファイル名が指定されていない場合は標準入力から読み取る 
   if(argc == optind) {
-    while(1) {
-      if(copt) cut_option_c(stdin);
-      if(fopt) cut_option_f(stdin); 
-      if(bopt) cut_option_b(stdin);
+    //while(1) {
+    if(copt) cut_option_c(stdin);
+    if(fopt) cut_option_f(stdin); 
+    if(bopt) cut_option_b(stdin);
     
-      if(regex_match_error) {
-        fprintf(stderr, "cut: fields are numbered from 1\nTry 'cut --help' for more information.\n");
-        exit(1);
-      }
+    if(regex_match_error) {
+      fprintf(stderr, "cut: fields are numbered from 1\nTry 'cut --help' for more information.\n");
+      exit(1);
     }
+    //}
   }
 
   //ファイルを順番に読み込んで処理する
