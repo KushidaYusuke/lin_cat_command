@@ -26,8 +26,8 @@ regmatch_t match[4];
 int size;
 char result[128];
 
-#define INIT_ALLOC 3 //初めに確保するメモリの要素数	
-#define ADD_ALLOC 10 //確保したメモリが足りなくなった場合に追加で確保する要素数
+const int INIT_ALLOC = 3; //初めに確保するメモリの要素数	
+const int ADD_ALLOC = 10; //確保したメモリが足りなくなった場合に追加で確保する要素数
 char *delim = ","; //トークンの区切り文字
 int delim_count = 0;//トークンの数
 int match_num = -1;//どの正規表現にマッチしたかを表す
@@ -95,14 +95,20 @@ bool is_digit_all(char *token) {
 //トークンに分割された引数を受け取る
 //各トークンについてトークンの形に応じて次のようにタイプをつけて、タイプに応じた処理をする
 //%d -> 0 %d- -> 1 -%d -> 2 %d-%d ->3 
-char *token_list[100]; //例: 2,3-4,6 -> token_list = {2, 3-4, 6-} type = {0,3,1}
-int type[100];
+char **token_list;
+ //例: 2,3-4,6 -> token_list = {2, 3-4, 6-} type = {0,3,1}
+int *type;
 
 int token_num = 0; //トークンの数(2, 3-5, -6 -> 3個)
 
 //オプションの引数を引数にとって、token_list, type配列を作成する
 //戻り値はトークンのパースに成功した場合true, 失敗した場合false
 bool create_token_parse_list(char *param) {
+  int now_alloc_token = INIT_ALLOC;
+  int now_char_num = 0;
+  int now_alloc_type = INIT_ALLOC;
+  token_list = (char**)malloc(sizeof(char*)*INIT_ALLOC);
+  type = (int*)malloc(sizeof(int)*INIT_ALLOC);
   char *token;
   token = strtok(param, delim);
 
@@ -110,6 +116,16 @@ bool create_token_parse_list(char *param) {
   while(token != NULL) {
     if(strchr(token, '-') != NULL) {
       if(regex_check(token)) {
+        int token_length = strlen(token);
+        now_char_num += token_length;
+        if (now_alloc_token <= now_char_num) {
+          token_list = realloc(token_list, (now_char_num + ADD_ALLOC)*(sizeof(char*)));
+          now_alloc_token = now_char_num + ADD_ALLOC;  
+        }
+        if (now_alloc_type <= index + 1) {
+          type = realloc(type, (now_alloc_type+ADD_ALLOC)*sizeof(int));
+          now_alloc_type += ADD_ALLOC;
+        }
         token_list[index] = token;
         type[index] = match_num;
         index += 1;
@@ -382,6 +398,5 @@ int main(int argc, char *argv[]) {
     }
   }
 }
-
 
 
