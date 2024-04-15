@@ -20,7 +20,7 @@ char *dparam = NULL;
 const char regex_1[] = "^([0-9]+)-$";
 const char regex_2[] = "^-([0-9]+)$";
 const char regex_3[] = "^([0-9]+)-([0-9]+)$";
-const char regex_4[] = "^[0-9](,[0-9])*$";
+//const char regex_4[] = "^[0-9](,[0-9])*$";
 regex_t regexBuffer;
 regmatch_t match[4];
 int size;
@@ -71,25 +71,6 @@ bool regex_check(char *checkstring) {
     regfree(&regexBuffer);
     match_num = 3;
   }
-  if(match_num == 1) {
-    sscanf(checkstring, "%d-", &lower_bound);
-    if(!bopt){lower_bound -= 1;} //0-index
-    upper_bound = INF;
-  }
-    // c -7のような場合
-  if(match_num == 2) {
-    sscanf(checkstring, "-%d", &upper_bound);
-    if(!bopt){upper_bound -= 1;}
-    lower_bound = 0;
-  }
-    // c 2-7のような場合
-  if(match_num == 3) {
-    sscanf(checkstring, "%d-%d", &lower_bound, &upper_bound);
-    if(!bopt) {
-      upper_bound -= 1;
-      lower_bound -= 1;
-    }
-  }
   //いずれかの正規表現にマッチした場合
   if(match_num == 1 | match_num == 2 | match_num == 3) {
     return true;
@@ -99,42 +80,114 @@ bool regex_check(char *checkstring) {
   }
 }
 
-//オプションの引数が1,3,4という形をしている場合にそれぞれの数値をリストに入れて返す
-int *token_parse(char *param) {
-  int *token_list = malloc(INIT_ALLOC*sizeof(int)); //int型INIT_ALLOC個分のメモリを事前に確保
-  if(regcomp(&regexBuffer, regex_4, REG_EXTENDED | REG_NEWLINE) != 0) {  
-  }
-  size = sizeof(match)/sizeof(regmatch_t);
-  if(regexec(&regexBuffer, param, size, match, 0) == 0) {
 
-    regfree(&regexBuffer);
-    token_regex_matched = true;
-  }
-
-  char *token = strtok(param, delim);
-  int alloc_num = INIT_ALLOC; //現在割り当てられている要素数
-  while(token != NULL) {
-    //確保したメモリが足りなくなった場合に追加で確保
-    if(delim_count == alloc_num) {
-      token_list = realloc(token_list, (delim_count+ADD_ALLOC)*sizeof(int)); 
-      alloc_num += ADD_ALLOC;
+bool is_digit_all(char *token) {
+  int length = strlen(token);
+  for(int i = 0; i < length; i++) {
+    if(isdigit(token[i]) == false) {
+      return false;
     }
-    if(!bopt) {token_list[delim_count] = atoi(token)-1;}
-    else  {token_list[delim_count] = atoi(token);}
-    delim_count += 1;
+  }
+  return true;
+}
+
+char *token_list[100];
+int type[100];
+
+int token_num = 0;
+bool create_token_parse_list(char *param) {
+  char *token;
+  token = strtok(param, delim);
+
+  int index = 0;
+  while(token != NULL) {
+    if(strchr(token, '-') != NULL) {
+      if(regex_check(token)) {
+        token_list[index] = token;
+        type[index] = match_num;
+        index += 1;
+      }
+      else {
+        printf("パースエラー");
+        return false;
+      }
+    }
+    else {
+      if(is_digit_all(token)) {
+        token_list[index] = token;
+	type[index] = 0;
+	index += 1;
+      }
+      else {
+        printf("パースエラー");
+        return false;
+      }
+    }
     token = strtok(NULL, delim);
   }
-  return token_list;
+  token_num = index;
+  return true;
 }
+
+
+bool check_range(int index) {
+  int length = token_num; //後で変更
+  for(int i = 0; i < length; i++) {
+    if(type[i] == 0) {
+      //printf("index %d\n", index);
+      //printf("atoi(token_list[i]) %d\n", atoi(token_list[i]));
+      int now_token = atoi(token_list[i]);
+      if(!bopt) now_token -= 1;
+      if(index == now_token) {
+        //printf("debug!!!!!!\n");
+	return true;
+      }
+      
+    }
+    int lower_bound = 0;
+    int upper_bound = INF;
+    if(type[i] == 1) {
+      sscanf(token_list[i], "%d-", &lower_bound);
+      if(!bopt) {
+	lower_bound -= 1;
+      }
+      if((index >= lower_bound) && (index <= upper_bound)) {
+        return true;
+      }
+    }
+
+    if(type[i] == 2) {
+      sscanf(token_list[i], "-%d", &upper_bound);
+      if(!bopt) {
+        upper_bound -= 1;
+      }
+      if((index >= lower_bound) && (index <= upper_bound)) {
+        return true;
+      }
+    }
+
+    if(type[i] == 3) {
+      sscanf(token_list[i], "%d-%d", &lower_bound, &upper_bound);
+      if(!bopt) {
+        upper_bound -= 1;
+	lower_bound -= 1;
+      }
+      if((index >= lower_bound) && (index <= upper_bound)) {
+        return true;
+      }
+    }
+
+  }
+//インデックスが指定した引数の範囲に含まれなかった場合false
+  return false;
+}
+
 
 
 //-cオプションが指定された場合の処理	
 void cut_option_c(FILE *file) {
-  
-  bool is_regex_matched = regex_check(cparam);
-  //いずれかの正規表現にマッチした場合の処理
-  if(is_regex_matched) {
-    int now_index = 0; //現在の行頭から0-indexで何番目か
+  if(create_token_parse_list(cparam)) {
+    int now_index = 0;
     int c;
     while((c = fgetc(file)) != EOF) {
       //改行の場合
@@ -143,48 +196,21 @@ void cut_option_c(FILE *file) {
 	now_index = 0;
 	continue;
       }
-      else if((now_index >= lower_bound) && (now_index <= upper_bound)) {
-        putchar(c);
+      else if(check_range(now_index)) {
+	putchar(c);
       }
       now_index += 1;
     }
   }
-  //	-c 2,3,4のような形でオプションが与えられる場合の処理
-  else {       
-    int *token_list_c = token_parse(cparam);
-    if(token_regex_matched==false) {
-      regex_match_error = true;
-      return;
-    }
-    int now_index = 0; //現在の行頭から0-indexで何番目か
-    int c;
-    while((c = fgetc(file)) != EOF) {
-      //改行の場合
-      if(c == '\n') {
-        putchar(c);
-	now_index = 0;
-	continue;
-      }
-      else {
-        for(int i = 0; i < delim_count; i++) {
-	  int cut_index = token_list_c[i];
-	  if(now_index == cut_index) {
-	    putchar(c);
-	  }
-	}
-      }
-      now_index += 1;
-    }
+  else {
+    return;
   }
 }
 
 
 //-bオプションが指定された場合の処理
 void cut_option_b(FILE *file) {
-  bool is_regex_matched_b = regex_check(bparam);
-  //printf("match_numは%d", match_num);
-  //いずれかの正規表現にマッチした場合の処理
-  if(is_regex_matched_b) {
+  if(create_token_parse_list(bparam)) { 
     int now_byte = 0; //現在の行頭から何バイト目か
     char c;
     while((c = fgetc(file)) != EOF) {
@@ -196,35 +222,8 @@ void cut_option_b(FILE *file) {
 	now_byte = 0;
 	continue;
       }
-      else if((now_byte >= lower_bound) && (now_byte <= upper_bound)) {
+      else if(check_range(now_byte)) {
         putchar(c);
-      }
-    }
-  }
-  //	-b 2,3,4のような形でオプションが与えられる場合の処理
-  else {       
-    int *token_list_b = token_parse(bparam);
-    int now_byte = 0; //現在は先頭から何バイト目か
-    if(token_regex_matched==false) {
-      regex_match_error = true;
-      return;
-    }
-    char c;
-    while((c = fgetc(file)) != EOF) {
-      now_byte += (int)(sizeof(c));
-      //改行の場合
-      if(c == '\n') {
-        putchar(c);
-	now_byte = 0;
-	continue;
-      }
-      else {
-        for(int i = 0; i < delim_count; i++) {
-	  int cut_byte = token_list_b[i];
-	  if(now_byte == cut_byte) {
-	    putchar(c);
-	  }
-	}
       }
     }
   }
@@ -240,10 +239,8 @@ void cut_option_f(FILE *file) {
   else {
     cut_letter = '\t';
   }
-  bool is_regex_matched_f = regex_check(fparam);
-  //区切り文字が%d-, %d-%d, -%d型の場合
-  if(is_regex_matched_f) {
-    
+  
+  if(create_token_parse_list(fparam)) {
     int now_index = 0; //現在見ている文字が行頭から何番目か(0-index)
     bool is_exist_cut_letter = false; //現在見ている行について区切り文字が存在するか判定
     char* tmp_stock = malloc(INIT_ALLOC*sizeof(char)); //各行の要素を一時的に保管
@@ -257,7 +254,7 @@ void cut_option_f(FILE *file) {
       if(c == '\n') {
 	if(sopt & !is_exist_cut_letter) ;
 	else if(!sopt & !is_exist_cut_letter) {
-	  for(int i = 0; i < now_index; i++) {
+	  for(int i = 0; i < now_index; i++) {  
 	    putchar(tmp_stock[i]);
 	  }
 	  putchar('\n');
@@ -267,7 +264,7 @@ void cut_option_f(FILE *file) {
 	    if(tmp_stock[i] == cut_letter) {
 	      now_field += 1;
 	    }
-	    if((now_field >= lower_bound) && (now_field <= upper_bound)) {
+	    if(check_range(now_field)) {
 	      if(tmp_stock[i] != cut_letter) {
 	        is_first_delim = false;
 	      }
@@ -299,73 +296,7 @@ void cut_option_f(FILE *file) {
       }
     }
   } 
-  //-f 2,3,4 -d ","のような形でオプションが与えられた場合の処理
-  else {
-    int *token_list_d = token_parse(fparam);
-    if(token_regex_matched==false) {
-      regex_match_error = true;
-      return;
-    }
-    int now_index = 0; //現在見ている文字が行頭から何番目か(0-index)
-    int now_alloc = INIT_ALLOC;
-    int now_field = 0;
-    bool is_exist_cut_letter = false;//現在見ている行について指定した区切り文字が存在するか
-    char *tmp_stock = malloc(INIT_ALLOC*sizeof(char)); //各行の要素を一時的に保管する
-    bool is_first_delim = true; //現在見ている行で初めの区切り文字であるか判定
-    int c;      
-    while((c = fgetc(file)) != EOF) {
-      //改行の場合
-      if(c == '\n') {
-	if(sopt & !is_exist_cut_letter) ;
-	else if(!sopt & !is_exist_cut_letter) {
-	  for(int i = 0; i < now_index; i++) {
-	    putchar(tmp_stock[i]);
-	  }
-	  putchar('\n');
-	}
-	else {
-	  for(int i = 0; i < now_index; i++) {
-	    if(tmp_stock[i] == cut_letter) {
-	      now_field += 1;
-	    }
-	    for(int j = 0; j < delim_count; j++) {  
-	      int cut_field = token_list_d[j];
-	      if(now_field == cut_field) {
-		if(tmp_stock[i] != cut_letter) {
-		  is_first_delim = false;
-		}
-		if(!is_first_delim) {
-		  putchar(tmp_stock[i]);
-		}  
-	      }
-	    }
-	  }
-	  putchar('\n');
-	}
-
-       	now_field = 0;
-	is_first_delim = true;
-	is_exist_cut_letter = false;
-	now_index = 0;
-	now_alloc = INIT_ALLOC;
-	free(tmp_stock);
-	tmp_stock = malloc(INIT_ALLOC*sizeof(char));
-	continue;
-      }
-      //現在着目している文字をtmp_stock内にいったん格納 
-      if(now_index == now_alloc) {
-        tmp_stock = realloc(tmp_stock, (now_index+ADD_ALLOC)*sizeof(char));
-	now_alloc += ADD_ALLOC;
-      }
-      tmp_stock[now_index] = c;
-      now_index += 1;
-      if(c == cut_letter) {
-        is_exist_cut_letter = true;
-      }      
-    }
-  }
 }
-
 
 
 
