@@ -45,8 +45,8 @@ bool regex_match_error = false; //入力された引数に対して対応する�
 //正規表現の判定をする関数
 //オプションの引数が%d-, %d-%d, -%dという形をしているときにTrue, それ以外の場合にfalseを返す
 //match_num=1: 引数は %d-型	
-//match_num=2: 引数は %d-%d型
-//match_num=3: 引数は -%d型
+//match_num=2: 引数は %-%d型
+//match_num=3: 引数は %d-%d型
 bool regex_check(char *checkstring) {
   if(regcomp(&regexBuffer, regex_1, REG_EXTENDED | REG_NEWLINE) != 0) {
     return false;
@@ -101,9 +101,13 @@ int *type;
 
 int token_num = 0; //トークンの数(2, 3-5, -6 -> 3個)
 
+bool already_parsed = false;
 //オプションの引数を引数にとって、token_list, type配列を作成する
 //戻り値はトークンのパースに成功した場合true, 失敗した場合false
 bool create_token_parse_list(char *param) {
+  //ファイルが複数個存在する場合について、一度引数をパースしてしまえばそれ以降は再びパースする必要はない
+  if(already_parsed) return true;
+  already_parsed = true;
   int now_alloc_token = INIT_ALLOC;
   int now_char_num = 0;
   int now_alloc_type = INIT_ALLOC;
@@ -134,6 +138,7 @@ bool create_token_parse_list(char *param) {
         return false;
       }
     }
+    //ハイフンを含まない(数値のみからなる)引数の処理
     else {
       if(is_digit_all(token)) {
 	token_list[index] = token;
@@ -206,7 +211,12 @@ bool check_range(int index) {
 
 //-cオプションが指定された場合の処理	
 void cut_option_c(FILE *file) {
-  if(create_token_parse_list(cparam)) {
+  //オプションの引数のパースに失敗した場合
+  if(create_token_parse_list(cparam) == false) {
+    regex_match_error = true;
+    return;
+  }
+  else {
     int now_index = 0;
     int c;
     while((c = fgetc(file)) != EOF) {
@@ -222,22 +232,21 @@ void cut_option_c(FILE *file) {
       now_index += 1;
     }
   }
-  else {
-    regex_match_error = true;
-    return;
-  }
 }
 
 
 //-bオプションが指定された場合の処理
 void cut_option_b(FILE *file) {
-  if(create_token_parse_list(bparam)) { 
+  if(create_token_parse_list(bparam) == false) {
+    regex_match_error = true;
+    return;
+  }
+  else { 
     int now_byte = 0; //現在の行頭から何バイト目か
     char c;
     while((c = fgetc(file)) != EOF) {
       now_byte += (int)(sizeof(c));
-      //printf("デバッグ%d\n", now_byte);
-      //改行の場合
+      //改行の場合 改行して何バイト目かのカウントをリセット
       if(c == '\n') {
         putchar(c);
 	now_byte = 0;
@@ -248,85 +257,85 @@ void cut_option_b(FILE *file) {
       }
     }
   }
-  else {
-    regex_match_error = true;
-    return;
-  }
 }
 
 
 //-fオプションが指定された場合の処理
+//row_buffer配列で各行の要素を一時的に保管しておいて、改行時にまとめて処理していることに注意
 void cut_option_f(FILE *file) {
   char cut_letter;
   if(dopt) {
     cut_letter = dparam[0]; //-dで指定した区切り文字：    
   }
   else {
-    cut_letter = '\t';
+    cut_letter = '\t'; //デフォルトではタブ区切り
   }
-  
-  if(create_token_parse_list(fparam)) {
+   
+  if(create_token_parse_list(fparam) == false) {
+    regex_match_error = true;
+    return;
+  }
+  else {
     int now_index = 0; //現在見ている文字が行頭から何番目か(0-index)
     bool is_exist_cut_letter = false; //現在見ている行について区切り文字が存在するか判定
-    char* tmp_stock = malloc(INIT_ALLOC*sizeof(char)); //各行の要素を一時的に保管
+    char* row_buffer = malloc(INIT_ALLOC*sizeof(char)); //各行の要素を一時的に保管
     int now_alloc = INIT_ALLOC; //現在割り当てられているメモリの要素数
-    bool is_first_delim = true; //現在見ている行で初めの区切り文字であるか判定
-    int now_field = 0;  
+    bool is_first_delim = true; //現在見ている行で初めの区切り文字であるか判定(,1,2,3など先頭に,がくる場合は飛ばして1,2,3を出力する)
+    int now_field = 0; //現在見ている文字は行頭から何フィールド目か  
     int c;      
 
     while((c = fgetc(file)) != EOF) {
-      //改行の場合
+      //改行文字の場合 row_bufferの処理を行う
       if(c == '\n') {
+        //-sオプションが指定されており、指定した改行文字が現在の行に存在しなければその行を読み飛ばす
 	if(sopt & !is_exist_cut_letter) ;
+        //-sオプションが指定されておらず、指定された改行文字が現在の行に存在しない場合はその行をすべて出力	
 	else if(!sopt & !is_exist_cut_letter) {
 	  for(int i = 0; i < now_index; i++) {  
-	    putchar(tmp_stock[i]);
+	    putchar(row_buffer[i]);
 	  }
 	  putchar('\n');
 	}
 	else {
 	  for(int i = 0; i < now_index; i++) {
-	    if(tmp_stock[i] == cut_letter) {
+	    if(row_buffer[i] == cut_letter) {
 	      now_field += 1;
 	    }
 	    if(check_range(now_field)) {
-	      if(tmp_stock[i] != cut_letter) {
+	      if(row_buffer[i] != cut_letter) {
 	        is_first_delim = false;
 	      }
 	      if(!is_first_delim) {
-	        putchar(tmp_stock[i]);
+	        putchar(row_buffer[i]);
 	      }
 	    }
 	  }
 	  putchar('\n');
 	}
+	free(row_buffer); 
 	now_field = 0;
 	is_first_delim = true;
 	is_exist_cut_letter = false;
 	now_index = 0;
-	free(tmp_stock); //メモリを解放
-	tmp_stock = malloc(INIT_ALLOC*sizeof(int));
+	row_buffer = malloc(INIT_ALLOC*sizeof(int));//次の行の要素を保管するために再びメモリを確保する
         now_alloc = INIT_ALLOC;
 	continue;
       }
       //確保したメモリが足りなくなった場合に追加で確保
       if(now_index == now_alloc) {
-        tmp_stock = realloc(tmp_stock, (now_index+ADD_ALLOC)*sizeof(char));
+        row_buffer = realloc(row_buffer, (now_index+ADD_ALLOC)*sizeof(char));
         now_alloc += ADD_ALLOC;
       }
-      tmp_stock[now_index] = c; //現在の行が終わるまで一時的に確保
+      row_buffer[now_index] = c; 
       now_index += 1;
       if(c == cut_letter) {
 	is_exist_cut_letter = true;
       }
     }
-  } 
-  else {
-    regex_match_error = true;
-    return;
-  }
-}
 
+    free(row_buffer);    
+  } 
+}
 
 
 int main(int argc, char *argv[]) {
@@ -367,16 +376,18 @@ int main(int argc, char *argv[]) {
  
  //ファイル名が指定されていない場合は標準入力から読み取る 
   if(argc == optind) {
-    //while(1) {
     if(copt) cut_option_c(stdin);
     if(fopt) cut_option_f(stdin); 
     if(bopt) cut_option_b(stdin);
     
     if(regex_match_error) {
       fprintf(stderr, "cut: fields are numbered from 1\nTry 'cut --help' for more information.\n");
+      free(token_list);
+      free(type);
       exit(1);
     }
-    //}
+    free(token_list);
+    free(type);
   }
 
   //ファイルを順番に読み込んで処理する
@@ -391,12 +402,17 @@ int main(int argc, char *argv[]) {
     if(bopt) cut_option_b(file);
     if(fopt) cut_option_f(file);
     fclose(file);
-    //エラーが起こった場合の処理
+    //オプションの引数が正規表現にマッチしなかった場合
     if(regex_match_error) {
-      fprintf(stderr, "cut: fields are numbered from 1\nTry 'cut --help' for more information.\n");
+      fprintf(stderr, "cut: fields are numbered from 1\nTry 'cut --help' for more information.\n"); 
+      free(token_list);
+      free(type);
       exit(1);
     }
   }
+  // 1-2,3,4などのオプションの引数とそのタイプを保管している動的配列のメモリを解放
+  free(token_list);
+  free(type);
 }
 
 
