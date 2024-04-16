@@ -111,6 +111,7 @@ bool create_token_parse_list(char *param) {
   int now_alloc_token = INIT_ALLOC;
   int now_char_num = 0;
   int now_alloc_type = INIT_ALLOC;
+  //オプションの引数とそのタイプを管理する動的配列　メモリの解放はmain関数内で行っている
   token_list = (char**)malloc(sizeof(char*)*INIT_ALLOC);
   type = (int*)malloc(sizeof(int)*INIT_ALLOC);
   char *token;
