@@ -76,7 +76,7 @@ bool is_digit_all(char *token) {
 bool already_parsed = false;
 //オプションの引数を引数にとって、token_list, type配列を作成する
 //戻り値はトークンのパースに成功した場合true, 失敗した場合false
-bool create_token_parse_list(char *param, char ***token_list, int **type, int *token_num_pointer) {
+bool create_token_parse_list(char *param, char ***token_list_pointer, int **type_pointer, int *token_num_pointer) {
   //ファイルが複数個存在する場合について、一度引数をパースしてしまえばそれ以降は再びパースする必要はない
   if(already_parsed) return true;
   already_parsed = true;
@@ -95,15 +95,15 @@ bool create_token_parse_list(char *param, char ***token_list, int **type, int *t
         int token_length = strlen(token);
         now_char_num += token_length;
         if (now_alloc_token <= now_char_num) {
-          *token_list = realloc(*token_list, (now_char_num + ADD_ALLOC)*(sizeof(char*)));
+          *token_list_pointer = realloc(*token_list_pointer, (now_char_num + ADD_ALLOC)*(sizeof(char*)));
           now_alloc_token = now_char_num + ADD_ALLOC;  
         }
         if (now_alloc_type <= index + 1) {
-          *type = realloc(*type, (now_alloc_type+ADD_ALLOC)*sizeof(int));
+          *type_pointer = realloc(*type_pointer, (now_alloc_type+ADD_ALLOC)*sizeof(int));
           now_alloc_type += ADD_ALLOC;
         }
-        (*token_list)[index] = token;
-        (*type)[index] = match_num;
+        (*token_list_pointer)[index] = token;
+        (*type_pointer)[index] = match_num;
         index += 1;
       }
       else {
@@ -113,8 +113,8 @@ bool create_token_parse_list(char *param, char ***token_list, int **type, int *t
     //ハイフンを含まない(数値のみからなる)引数の処理
     else {
       if(is_digit_all(token)) {
-	(*token_list)[index] = token;
-	(*type)[index] = 0;
+	(*token_list_pointer)[index] = token;
+	(*type_pointer)[index] = 0;
 	index += 1;
       }
       else {
