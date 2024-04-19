@@ -5,73 +5,52 @@
 #include<stdbool.h>
 #include<unistd.h>
 #include<regex.h>
-int bopt = 0;
-int copt = 0;
-int fopt = 0;
-int dopt = 0;
-int sopt = 0;
-char *bparam = NULL;
-char *cparam = NULL;
-char *fparam = NULL;
-char *dparam = NULL;
 
-//正規表現を用いた判定のための変数
-//char checkstring[] = "2-9";
-const char regex_1[] = "^([0-9]+)-$";
-const char regex_2[] = "^-([0-9]+)$";
-const char regex_3[] = "^([0-9]+)-([0-9]+)$";
-//const char regex_4[] = "^[0-9](,[0-9])*$";
-regex_t regexBuffer;
-regmatch_t match[4];
-int size;
-char result[128];
 
-const int INIT_ALLOC = 3; //初めに確保するメモリの要素数	
-const int ADD_ALLOC = 10; //確保したメモリが足りなくなった場合に追加で確保する要素数
-char *delim = ","; //トークンの区切り文字
-int delim_count = 0;//トークンの数
-int match_num = -1;//どの正規表現にマッチしたかを表す
-
-//%d-%d, -%d, %d-型の引数が渡される
+#define INIT_ALLOC 3 //初めに確保するメモリの要素数	
+#define ADD_ALLOC 10 //確保したメモリが足りなくなった場合に追加で確保する要素数
 #define INF 1000000
-int lower_bound = 0;
-int upper_bound = INF;
 
-bool token_regex_matched = false;//引数が3や2,3,4という形(regex_4変数で表現される正規表現に対応)で与えられているかを判定
-
-//エラーを表す変数
-bool regex_match_error = false; //入力された引数に対して対応する正規表現が存在しない場合はエラー
 
 //正規表現の判定をする関数
 //オプションの引数が%d-, %d-%d, -%dという形をしているときにTrue, それ以外の場合にfalseを返す
 //match_num=1: 引数は %d-型	
 //match_num=2: 引数は %-%d型
 //match_num=3: 引数は %d-%d型
-bool regex_check(char *checkstring) {
+bool regex_check(char *checkstring, int *match_num) {
+  //正規表現を用いた判定のための変数
+  //char checkstring[] = "2-9";
+  const char regex_1[] = "^([0-9]+)-$";
+  const char regex_2[] = "^-([0-9]+)$";
+  const char regex_3[] = "^([0-9]+)-([0-9]+)$";
+  regex_t regexBuffer;
+  regmatch_t match[4];
+  int size;
+  char result[128];
   if(regcomp(&regexBuffer, regex_1, REG_EXTENDED | REG_NEWLINE) != 0) {
     return false;
   }
   size = sizeof(match)/sizeof(regmatch_t);
   if(regexec(&regexBuffer, checkstring, size, match, 0) == 0) {
     regfree(&regexBuffer);
-    match_num = 1;
+    *match_num = 1;
   }
   if(regcomp(&regexBuffer, regex_2, REG_EXTENDED | REG_NEWLINE) != 0) {
     return false;
   }
   if(regexec(&regexBuffer, checkstring, size, match, 0) == 0) {
     regfree(&regexBuffer);
-    match_num = 2;
+    *match_num = 2;
   }
   if(regcomp(&regexBuffer, regex_3, REG_EXTENDED | REG_NEWLINE) != 0) {
     return false;
   }
   if(regexec(&regexBuffer, checkstring, size, match, 0) == 0) {
     regfree(&regexBuffer);
-    match_num = 3;
+    *match_num = 3;
   }
   //いずれかの正規表現にマッチした場合
-  if(match_num == 1 | match_num == 2 | match_num == 3) {
+  if(*match_num == 1 | *match_num == 2 | *match_num == 3) {
     return true;
   }
   else {
@@ -93,12 +72,11 @@ bool is_digit_all(char *token) {
 
 
 
-int token_num = 0; //トークンの数(2, 3-5, -6 -> 3個)
 
 bool already_parsed = false;
 //オプションの引数を引数にとって、token_list, type配列を作成する
 //戻り値はトークンのパースに成功した場合true, 失敗した場合false
-bool create_token_parse_list(char *param, char ***token_list, int **type) {
+bool create_token_parse_list(char *param, char ***token_list, int **type, int *token_num_pointer) {
   //ファイルが複数個存在する場合について、一度引数をパースしてしまえばそれ以降は再びパースする必要はない
   if(already_parsed) return true;
   already_parsed = true;
@@ -107,12 +85,13 @@ bool create_token_parse_list(char *param, char ***token_list, int **type) {
   int now_alloc_type = INIT_ALLOC;
   //オプションの引数とそのタイプを管理する動的配列　メモリの解放はmain関数内で行っている
   char *token;
-  token = strtok(param, delim);
+  token = strtok(param, ",");
 
   int index = 0;
   while(token != NULL) {
     if(strchr(token, '-') != NULL) {
-      if(regex_check(token)) {
+      int match_num = -1;
+      if(regex_check(token, &match_num)) {
         int token_length = strlen(token);
         now_char_num += token_length;
         if (now_alloc_token <= now_char_num) {
@@ -142,16 +121,16 @@ bool create_token_parse_list(char *param, char ***token_list, int **type) {
         return false;
       }
     }
-    token = strtok(NULL, delim);
+    token = strtok(NULL, ",");
   }
-  token_num = index;
+  *token_num_pointer = index;
   return true;
 }
 
 
 
 //現在見ているインデックスが引数で指定した範囲に含まれる場合true, 含まれない場合falseを返す
-bool check_range(int index, char **token_list, int *type) {
+bool check_range(int index, char **token_list, int *type, int bopt, int token_num) {
   int length = token_num; 
   for(int i = 0; i < length; i++) {
     if(type[i] == 0) {
@@ -203,7 +182,7 @@ bool check_range(int index, char **token_list, int *type) {
 
 
 //-cオプションが指定された場合の処理	
-void cut_option_c(FILE *file, char **token_list, int *type) {
+void cut_option_c(FILE *file, char **token_list, int *type, int bopt, int token_num) {
 //オプションの引数のパースに失敗した場合
   int now_index = 0;
   int c;
@@ -214,7 +193,7 @@ void cut_option_c(FILE *file, char **token_list, int *type) {
       now_index = 0;
       continue;
     }
-    else if(check_range(now_index, token_list, type)) {
+    else if(check_range(now_index, token_list, type, bopt, token_num)) {
       putchar(c);
     }
     now_index += 1;
@@ -223,7 +202,7 @@ void cut_option_c(FILE *file, char **token_list, int *type) {
 
 
 //-bオプションが指定された場合の処理
-void cut_option_b(FILE *file, char **token_list, int *type) {
+void cut_option_b(FILE *file, char **token_list, int *type, int bopt, int token_num) {
   int now_byte = 0; //現在の行頭から何バイト目か
   char c;
   while((c = fgetc(file)) != EOF) {
@@ -234,7 +213,7 @@ void cut_option_b(FILE *file, char **token_list, int *type) {
       now_byte = 0;
       continue;
     }
-    else if(check_range(now_byte, token_list, type)) {
+    else if(check_range(now_byte, token_list, type, bopt, token_num)) {
       putchar(c);
     }
   }
@@ -243,7 +222,7 @@ void cut_option_b(FILE *file, char **token_list, int *type) {
 
 //-fオプションが指定された場合の処理
 //row_buffer配列で各行の要素を一時的に保管しておいて、改行時にまとめて処理していることに注意
-void cut_option_f(FILE *file, char **token_list, int *type) {
+void cut_option_f(FILE *file, char **token_list, int *type, int bopt, int dopt, int sopt, char *dparam, int token_num) {
   char cut_letter;
   if(dopt) {
     cut_letter = dparam[0]; //-dで指定した区切り文字：    
@@ -277,7 +256,7 @@ void cut_option_f(FILE *file, char **token_list, int *type) {
 	  if(row_buffer[i] == cut_letter) {
 	    now_field += 1;
 	  }
-	  if(check_range(now_field, token_list, type)) {
+	  if(check_range(now_field, token_list, type, bopt, token_num)) {
 	    if(row_buffer[i] != cut_letter) {
 	      is_first_delim = false;
 	    }
@@ -320,8 +299,17 @@ int main(int argc, char *argv[]) {
   char **token_list = (char**)malloc(sizeof(char*)*INIT_ALLOC); 
   //例: 2,3-4,6 -> token_list = {2, 3-4, 6-} type = {0,3,1}
   int *type = (int*)malloc(sizeof(int)*INIT_ALLOC);
+  int token_num = 0;
   //オプションの処理
-
+  int bopt = 0;
+  int copt = 0;
+  int fopt = 0;
+  int dopt = 0;
+  int sopt = 0;
+  char *bparam = NULL;
+  char *cparam = NULL;
+  char *fparam = NULL;
+  char *dparam = NULL;
   int opt;
   while((opt = getopt(argc, argv, "b:c:f:d:s")) != -1) {
     switch(opt) {
@@ -329,17 +317,17 @@ int main(int argc, char *argv[]) {
         bopt = 1;
 	bparam = optarg;
 	
-	create_token_parse_list(bparam, &token_list, &type);
+	create_token_parse_list(bparam, &token_list, &type, &token_num);
 	break;
       case 'c':
         copt = 1;
 	cparam = optarg;
-	create_token_parse_list(cparam, &token_list, &type);
+	create_token_parse_list(cparam, &token_list, &type, &token_num);
 	break;
       case 'f':
         fopt = 1;
 	fparam = optarg;
-	create_token_parse_list(fparam, &token_list, &type);
+	create_token_parse_list(fparam, &token_list, &type, &token_num);
 	break;
       case 'd':
         dopt = 1;
@@ -362,16 +350,16 @@ int main(int argc, char *argv[]) {
  
  //ファイル名が指定されていない場合は標準入力から読み取る 
   if(argc == optind) {
-    if(copt){cut_option_c(stdin, token_list, type);}
-    if(fopt){cut_option_f(stdin, token_list, type);}
-    if(bopt){cut_option_b(stdin, token_list, type);}
+    if(copt){cut_option_c(stdin, token_list, type, false, token_num);}
+    if(fopt){cut_option_f(stdin, token_list, type, false, dopt, sopt, dparam, token_num);}
+    if(bopt){cut_option_b(stdin, token_list, type, true, token_num);}
     
-    if(regex_match_error) {
-      fprintf(stderr, "cut: fields are numbered from 1\nTry 'cut --help' for more information.\n");
-      free(token_list);
-      free(type);
-      exit(1);
-    }
+    //if(regex_match_error) {
+    //  fprintf(stderr, "cut: fields are numbered from 1\nTry 'cut --help' for more information.\n");
+    //  free(token_list);
+     // free(type);
+     // exit(1);
+   // }
     free(token_list);
     free(type);
   }
@@ -384,17 +372,17 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "cut: %s:No such file or directory\n", argv[i]);
       exit(1);
     }
-    if(copt) cut_option_c(file, token_list, type);
-    if(bopt) cut_option_b(file, token_list, type);
-    if(fopt) cut_option_f(file, token_list, type);
+    if(copt) cut_option_c(file, token_list, type, false, token_num);
+    if(bopt) cut_option_b(file, token_list, type, true, token_num);
+    if(fopt) cut_option_f(file, token_list, type, false, dopt, sopt, dparam, token_num);
     fclose(file);
     //オプションの引数が正規表現にマッチしなかった場合
-    if(regex_match_error) {
-      fprintf(stderr, "cut: fields are numbered from 1\nTry 'cut --help' for more information.\n"); 
-      free(token_list);
-      free(type);
-      exit(1);
-    }
+    //if(regex_match_error) {
+    //  fprintf(stderr, "cut: fields are numbered from 1\nTry 'cut --help' for more information.\n"); 
+    //  free(token_list);
+    //  free(type);
+    //  exit(1);
+   // }
   }
   // 1-2,3,4などのオプションの引数とそのタイプを保管している動的配列のメモリを解放
   free(token_list);
