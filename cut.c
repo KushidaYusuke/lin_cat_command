@@ -76,7 +76,6 @@ bool is_digit_all(char *token) {
 //オプションの引数を引数にとって、token_list, type配列を作成する
 //戻り値はトークンのパースに成功した場合true, 失敗した場合false
 void create_token_parse_list(char *param, char ***token_list_pointer, int **type_pointer, int *token_num_pointer, bool *input_format_error_pointer, bool *memory_allocate_error_pointer) {
-  //ファイルが複数個存在する場合について、一度引数をパースしてしまえばそれ以降は再びパースする必要はない
   int now_alloc_token = INIT_ALLOC;
   int now_char_num = 0;
   int now_alloc_type = INIT_ALLOC;
@@ -362,10 +361,14 @@ int main(int argc, char *argv[]) {
   //エラー処理
   if(input_format_error) {
     fprintf(stderr, "入力形式が正しくありません\n");
+    free(token_list);
+    free(type);
     exit(1);
   }
   if(memory_allocate_error) {
     printf("メモリの割り当てに失敗しました\n");
+    free(token_list);
+    free(type);
     exit(1);
   }
   
@@ -385,6 +388,10 @@ int main(int argc, char *argv[]) {
     if(fopt){cut_option_f(stdin, token_list, type, false, dopt, sopt, dparam, token_num, &memory_allocate_error);}
     if(bopt){cut_option_b(stdin, token_list, type, true, token_num);}
     
+    if(memory_allocate_error) {
+      printf("メモリの割り当てに失敗しました\n");
+      exit(1);
+    }
     free(token_list);
     free(type);
   }
@@ -401,10 +408,17 @@ int main(int argc, char *argv[]) {
     if(bopt) cut_option_b(file, token_list, type, true, token_num);
     if(fopt) cut_option_f(file, token_list, type, false, dopt, sopt, dparam, token_num, &memory_allocate_error);
     fclose(file);
+    if(memory_allocate_error) {
+      printf("メモリの割り当てに失敗しました\n");
+      free(token_list);
+      free(type);
+      exit(1);
+    }
   }
   // 1-2,3,4などのオプションの引数とそのタイプを保管している動的配列のメモリを解放
   free(token_list);
   free(type);
+  
 }
 
 
