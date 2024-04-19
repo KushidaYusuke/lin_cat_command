@@ -73,13 +73,10 @@ bool is_digit_all(char *token) {
 
 
 
-bool already_parsed = false;
 //オプションの引数を引数にとって、token_list, type配列を作成する
 //戻り値はトークンのパースに成功した場合true, 失敗した場合false
-bool create_token_parse_list(char *param, char ***token_list_pointer, int **type_pointer, int *token_num_pointer) {
+void create_token_parse_list(char *param, char ***token_list_pointer, int **type_pointer, int *token_num_pointer, bool *input_format_error_pointer, bool *memory_allocate_error_pointer) {
   //ファイルが複数個存在する場合について、一度引数をパースしてしまえばそれ以降は再びパースする必要はない
-  if(already_parsed) return true;
-  already_parsed = true;
   int now_alloc_token = INIT_ALLOC;
   int now_char_num = 0;
   int now_alloc_type = INIT_ALLOC;
@@ -89,25 +86,37 @@ bool create_token_parse_list(char *param, char ***token_list_pointer, int **type
 
   int index = 0;
   while(token != NULL) {
+    //ハイフンを含む引数の処理
     if(strchr(token, '-') != NULL) {
       int match_num = -1;
-      if(regex_check(token, &match_num)) {
+      //入力ができ刹那形式でなかった場合
+      if(regex_check(token, &match_num) == false) {
+	*input_format_error_pointer = true;
+	return;
+      }
+      else {
         int token_length = strlen(token);
         now_char_num += token_length;
-        if (now_alloc_token <= now_char_num) {
+        if(now_alloc_token <= now_char_num) {
           *token_list_pointer = realloc(*token_list_pointer, (now_char_num + ADD_ALLOC)*(sizeof(char*)));
-          now_alloc_token = now_char_num + ADD_ALLOC;  
+          //メモリの割り当てに失敗した場合
+	  if(*token_list_pointer == NULL) {
+	    *memory_allocate_error_pointer = true;
+	    return;
+	  }
+	  now_alloc_token = now_char_num + ADD_ALLOC;  
         }
-        if (now_alloc_type <= index + 1) {
+        if(now_alloc_type <= index + 1) {
           *type_pointer = realloc(*type_pointer, (now_alloc_type+ADD_ALLOC)*sizeof(int));
+	  if(*type_pointer == NULL) {
+	    *memory_allocate_error_pointer = true;
+	    return;
+	  }
           now_alloc_type += ADD_ALLOC;
         }
         (*token_list_pointer)[index] = token;
         (*type_pointer)[index] = match_num;
         index += 1;
-      }
-      else {
-        return false;
       }
     }
     //ハイフンを含まない(数値のみからなる)引数の処理
@@ -118,13 +127,14 @@ bool create_token_parse_list(char *param, char ***token_list_pointer, int **type
 	index += 1;
       }
       else {
-        return false;
+        *input_format_error_pointer = true;
+        return;
       }
     }
     token = strtok(NULL, ",");
   }
   *token_num_pointer = index;
-  return true;
+  return;
 }
 
 
@@ -222,7 +232,7 @@ void cut_option_b(FILE *file, char **token_list, int *type, int bopt, int token_
 
 //-fオプションが指定された場合の処理
 //row_buffer配列で各行の要素を一時的に保管しておいて、改行時にまとめて処理していることに注意
-void cut_option_f(FILE *file, char **token_list, int *type, int bopt, int dopt, int sopt, char *dparam, int token_num) {
+void cut_option_f(FILE *file, char **token_list, int *type, int bopt, int dopt, int sopt, char *dparam, int token_num, bool *memory_allocate_error_pointer) {
   char cut_letter;
   if(dopt) {
     cut_letter = dparam[0]; //-dで指定した区切り文字：    
@@ -234,6 +244,10 @@ void cut_option_f(FILE *file, char **token_list, int *type, int bopt, int dopt, 
   int now_index = 0; //現在見ている文字が行頭から何番目か(0-index)
   bool is_exist_cut_letter = false; //現在見ている行について区切り文字が存在するか判定
   char* row_buffer = malloc(INIT_ALLOC*sizeof(char)); //各行の要素を一時的に保管
+  if(row_buffer == NULL) {
+    *memory_allocate_error_pointer = true;
+    return;
+  }
   int now_alloc = INIT_ALLOC; //現在割り当てられているメモリの要素数
   bool is_first_delim = true; //現在見ている行で初めの区切り文字であるか判定(,1,2,3など先頭に,がくる場合は飛ばして1,2,3を出力する)
   int now_field = 0; //現在見ている文字は行頭から何フィールド目か  
@@ -279,6 +293,10 @@ void cut_option_f(FILE *file, char **token_list, int *type, int bopt, int dopt, 
     //確保したメモリが足りなくなった場合に追加で確保
     if(now_index == now_alloc) {
       row_buffer = realloc(row_buffer, (now_index+ADD_ALLOC)*sizeof(char));
+      if(row_buffer == NULL) {
+        *memory_allocate_error_pointer = true;
+	return;
+      }
       now_alloc += ADD_ALLOC;
     }
     row_buffer[now_index] = c; 
@@ -293,13 +311,17 @@ void cut_option_f(FILE *file, char **token_list, int *type, int bopt, int dopt, 
 
 
 int main(int argc, char *argv[]) {
+  //エラーを表す変数
+  bool memory_allocate_error = false;
+  bool input_format_error = false;
+
   //トークンに分割された引数を受け取る
   //各トークンについてトークンの形に応じて次のようにタイプをつけて、タイプに応じた処理をする
   //%d -> 0 %d- -> 1 -%d -> 2 %d-%d ->3 
+  //例: 2,3-4,6 -> token_list = {2, 3-4, 6-} type = {0,3,1} token_num = 3
   char **token_list = (char**)malloc(sizeof(char*)*INIT_ALLOC); 
-  //例: 2,3-4,6 -> token_list = {2, 3-4, 6-} type = {0,3,1}
   int *type = (int*)malloc(sizeof(int)*INIT_ALLOC);
-  int token_num = 0;
+  int token_num = 0; //オプション引数で受け取ったトークンの数
   //オプションの処理
   int bopt = 0;
   int copt = 0;
@@ -316,18 +338,17 @@ int main(int argc, char *argv[]) {
       case 'b':
         bopt = 1;
 	bparam = optarg;
-	
-	create_token_parse_list(bparam, &token_list, &type, &token_num);
+	create_token_parse_list(bparam, &token_list, &type, &token_num, &input_format_error, &memory_allocate_error);
 	break;
       case 'c':
         copt = 1;
 	cparam = optarg;
-	create_token_parse_list(cparam, &token_list, &type, &token_num);
+	create_token_parse_list(cparam, &token_list, &type, &token_num, &input_format_error, &memory_allocate_error);
 	break;
       case 'f':
         fopt = 1;
 	fparam = optarg;
-	create_token_parse_list(fparam, &token_list, &type, &token_num);
+	create_token_parse_list(fparam, &token_list, &type, &token_num, &input_format_error, &memory_allocate_error);
 	break;
       case 'd':
         dopt = 1;
@@ -336,6 +357,16 @@ int main(int argc, char *argv[]) {
       case 's':
         sopt = 1;
     }
+  }
+
+  //エラー処理
+  if(input_format_error) {
+    fprintf(stderr, "入力形式が正しくありません\n");
+    exit(1);
+  }
+  if(memory_allocate_error) {
+    printf("メモリの割り当てに失敗しました\n");
+    exit(1);
   }
   
 
@@ -351,15 +382,9 @@ int main(int argc, char *argv[]) {
  //ファイル名が指定されていない場合は標準入力から読み取る 
   if(argc == optind) {
     if(copt){cut_option_c(stdin, token_list, type, false, token_num);}
-    if(fopt){cut_option_f(stdin, token_list, type, false, dopt, sopt, dparam, token_num);}
+    if(fopt){cut_option_f(stdin, token_list, type, false, dopt, sopt, dparam, token_num, &memory_allocate_error);}
     if(bopt){cut_option_b(stdin, token_list, type, true, token_num);}
     
-    //if(regex_match_error) {
-    //  fprintf(stderr, "cut: fields are numbered from 1\nTry 'cut --help' for more information.\n");
-    //  free(token_list);
-     // free(type);
-     // exit(1);
-   // }
     free(token_list);
     free(type);
   }
@@ -374,15 +399,8 @@ int main(int argc, char *argv[]) {
     }
     if(copt) cut_option_c(file, token_list, type, false, token_num);
     if(bopt) cut_option_b(file, token_list, type, true, token_num);
-    if(fopt) cut_option_f(file, token_list, type, false, dopt, sopt, dparam, token_num);
+    if(fopt) cut_option_f(file, token_list, type, false, dopt, sopt, dparam, token_num, &memory_allocate_error);
     fclose(file);
-    //オプションの引数が正規表現にマッチしなかった場合
-    //if(regex_match_error) {
-    //  fprintf(stderr, "cut: fields are numbered from 1\nTry 'cut --help' for more information.\n"); 
-    //  free(token_list);
-    //  free(type);
-    //  exit(1);
-   // }
   }
   // 1-2,3,4などのオプションの引数とそのタイプを保管している動的配列のメモリを解放
   free(token_list);
